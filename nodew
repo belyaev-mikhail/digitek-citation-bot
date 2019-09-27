@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+set -e
+
+
+. "$(dirname "${BASH_SOURCE[0]}")/wrappers.conf"
+
+. "$(dirname "${BASH_SOURCE[0]}")/bash_libs/wrappers.sh"
+
+
+is_node_installed
+
+if  [[ -n ${_node_installed} ]]; then
+    is_node_up_to_date
+fi
+
+if [[ -z ${_node_installed} ]]; then
+    install_node
+elif [[ -n ${_node_installed} ]] && [[ -z ${_node_up_to_date} ]]; then
+    uninstall_node
+    install_node
+fi
+
+local_node $@

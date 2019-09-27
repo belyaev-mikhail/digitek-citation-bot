@@ -1,0 +1,7 @@
+secrets.ts
+secrets.sh
+
+node_modules/**
+.node/**
+.git/**
+.idea/**

@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+set -e
+
+. secrets.sh
+
+./nodew --version > /dev/null # Ensuring installed node
+
+. "$(dirname "${BASH_SOURCE[0]}")/wrappers.conf"
+
+. "$(dirname "${BASH_SOURCE[0]}")/bash_libs/wrappers.sh"
+
+is_yarn_installed
+
+if [[ -n ${_yarn_installed} ]]; then
+    is_yarn_up_to_date
+fi
+
+if [[ -z ${_yarn_installed} ]]; then
+    install_yarn
+elif [[ -n ${_yarn_installed} ]] && [[ -z ${_yarn_up_to_date} ]]; then
+    uninstall_yarn
+    install_yarn
+fi
+
+local_yarn $@
