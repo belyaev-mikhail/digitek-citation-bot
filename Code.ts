@@ -34,7 +34,7 @@ function sendText(id, text) {
     var response = UrlFetchApp.fetch(`${telegramUrl()}/sendMessage`, {
         method: 'post',
         payload: {
-            chat_id: id,
+            chat_id: "" + id,
             text: text
         }
     });
