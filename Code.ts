@@ -35,7 +35,7 @@ function sendText(id, text) {
         method: 'post',
         payload: {
             chat_id: id,
-            text: encodeURI(text)
+            text: text
         }
     });
     Logger.log(response.getContentText());
