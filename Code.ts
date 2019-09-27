@@ -31,8 +31,13 @@ function setWebhook() {
 }
 
 function sendText(id, text) {
-    var url = `${telegramUrl()}/sendMessage?chat_id=${id}&text=${encodeURI(text)}`;
-    var response = UrlFetchApp.fetch(url);
+    var response = UrlFetchApp.fetch(`${telegramUrl()}/sendMessage`, {
+        method: 'post',
+        payload: {
+            chat_id: id,
+            text: encodeURI(text)
+        }
+    });
     Logger.log(response.getContentText());
 }
 
@@ -77,7 +82,7 @@ function citeOfTheDay() {
 // this is somehow not in telegram's type definitions
 interface TlUpdateFix {
     message ?: {
-        forward_sender_name: string
+        forward_sender_name?: string
     }
 }
 
