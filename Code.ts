@@ -119,7 +119,7 @@ function success(id: number) {
 }
 
 function tryManual(text, id) {
-    if (text.trim().startsWith("/cite")) {
+    if (text.trim().indexOf("/cite") == 0) {
         const tryout = text.replace("/cite", "").replace("(с)", "(c)").trim().split("(c)");
         if (tryout.length != 2) {
             sendText(id, "Попробуй так: /cite Сообщение (c) Вася");
