@@ -160,8 +160,8 @@ function doPost(e) {
     }
 
     if (text.trim() === '/random') {
-        var range = getRandom();
-        sendText(id, `${range[1]} (c) ${range[0]}`);
+        const [who, what] = getRandom();
+        sendText(id, `${what} (c) ${who}`);
         return;
     }
 
