@@ -118,6 +118,19 @@ function success(id: number) {
     sendText(id, ok);
 }
 
+function tryManual(text, id) {
+    if (text.trim().startsWith("/cite")) {
+        const tryout = text.replace("/cite", "").replace("(с)", "(c)").trim().split("(c)");
+        if (tryout.length != 2) {
+            sendText(id, "Попробуй так: /cite Сообщение (c) Вася");
+            return;
+        }
+        const [ctext, name] = tryout;
+        success(id);
+        getCitationSheet().appendRow([name.trim(), ctext.trim(), `by ${SIG}`]);
+    }
+}
+
 function doPost(e) {
     getDebugSheet().appendRow([e.postData.contents]);
 
@@ -156,7 +169,10 @@ function doPost(e) {
     }
 
     if (data.message.chat.type === "private") {
-        if (!data.message.forward_from && !data.message.forward_sender_name) return;
+        if (!data.message.forward_from && !data.message.forward_sender_name) {
+            tryManual(text, id);
+            return
+        }
         var name = getForwardedName(data.message);
         success(id);
         getCitationSheet().appendRow([name, text, `by ${SIG}`]);
@@ -174,14 +190,5 @@ function doPost(e) {
         getCitationSheet().appendRow([name, text, `by ${SIG}`]);
     }
 
-    if(text.trim().startsWith("/cite")) {
-        const tryout = text.replace("/cite", "").replace("(с)", "(c)").trim().split("(c)");
-        if(tryout.length != 2) {
-            sendText(id, "Попробуй так: /cite Сообщение (c) Вася");
-            return;
-        }
-        const [ctext, name] = tryout;
-        success(id);
-        getCitationSheet().appendRow([name.trim(), ctext.trim(), `by ${SIG}`]);
-    }
+    tryManual(text, id);
 }
