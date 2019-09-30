@@ -46,12 +46,13 @@ function UUID() {
 }
 
 function doGet(e) {
-    return HtmlService.createHtmlOutput("Hi there");
+    const [who, what] = getRandom();
+    return HtmlService.createHtmlOutput(`${what} (c) ${who}`);
 }
 
 function getRandom() {
     var max = getCitationSheet().getLastRow() - 1;
-    var random = Math.round(Math.random() * max) + 1;
+    var random = Math.floor(Math.random() * max) + 2;
     var range = getCitationSheet().getRange(random, 1, 1, 3);
     return range.getValues()[0]
 }
@@ -64,8 +65,6 @@ function isAllowed(id) {
     return false
 }
 
-var lastMessage;
-
 function citeOfTheDay() {
     var sheet = getDataSheet();
 
@@ -73,8 +72,8 @@ function citeOfTheDay() {
     for (row = 2; row <= sheet.getLastRow(); ++row) {
         var id = +sheet.getRange(row, 1).getValue();
         if (id < 0) {
-            var range = getRandom();
-            sendText(id, "Цитата дня:\n" + range[1] + " (c) " + range[0])
+            const [who, what] = getRandom();
+            sendText(id, "Цитата дня:\n" +`${what} (c) ${who}`)
         }
     }
 }
@@ -136,8 +135,6 @@ function doPost(e) {
 
     var data = JSON.parse(e.postData.contents) as TlUpdate;
     if (!data.message) return;
-
-    lastMessage = data.message;
 
     var text = data.message.text;
     var id = data.message.chat.id;
