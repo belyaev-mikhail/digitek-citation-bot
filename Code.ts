@@ -102,6 +102,22 @@ function getForwardedName(m: Message) {
     return "Some guy"
 }
 
+function success(id: number) {
+    const variants = [
+        "Ok",
+        "k",
+        "Понял, принял",
+        "Ладушки",
+        "Принято",
+        "+",
+        "Ладно, ладно"
+    ];
+
+    const ok = variants[Math.floor(Math.random() * variants.length)];
+
+    sendText(id, ok);
+}
+
 function doPost(e) {
     getDebugSheet().appendRow([e.postData.contents]);
 
@@ -142,16 +158,30 @@ function doPost(e) {
     if (data.message.chat.type === "private") {
         if (!data.message.forward_from && !data.message.forward_sender_name) return;
         var name = getForwardedName(data.message);
-        sendText(id, "Ок");
+        success(id);
         getCitationSheet().appendRow([name, text, `by ${SIG}`]);
     }
 
     if (text.trim() === "/cite") {
-        if (!data.message.reply_to_message) return;
+        if (!data.message.reply_to_message) {
+            sendText(id, "Я умею цитировать только реплаи, сорян\nМожешь зафорвардить сообщение мне в личку");
+            return;
+        }
         var rm = data.message.reply_to_message;
         var name = rm.from.first_name || rm.from.username;
         var text = rm.text;
-        sendText(id, "Ок");
+        success(id);
         getCitationSheet().appendRow([name, text, `by ${SIG}`]);
+    }
+
+    if(text.trim().startsWith("/cite")) {
+        const tryout = text.replace("/cite", "").replace("(с)", "(c)").trim().split("(c)");
+        if(tryout.length != 2) {
+            sendText(id, "Попробуй так: /cite Сообщение (c) Вася");
+            return;
+        }
+        const [ctext, name] = tryout;
+        success(id);
+        getCitationSheet().appendRow([name.trim(), ctext.trim(), `by ${SIG}`]);
     }
 }
