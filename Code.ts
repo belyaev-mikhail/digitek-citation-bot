@@ -174,12 +174,12 @@ function doPost(e) {
     }
 
     if (text.trim().indexOf('/read') === 0) {
-        const id = parseInt(text.replace('/read', '').trim());
-        if(id != id) {
+        const cid = parseInt(text.replace('/read', '').trim());
+        if(cid != cid) {
             sendText(id, "Нет такой цитаты");
             return;
         }
-        const cite = getById(id);
+        const cite = getById(cid);
         if(!cite) {
             sendText(id, "Нет такой цитаты");
             return;
