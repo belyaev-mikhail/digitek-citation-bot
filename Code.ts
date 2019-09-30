@@ -57,6 +57,14 @@ function getRandom() {
     return range.getValues()[0]
 }
 
+function getById(id: number): any[] | null {
+    var max = getCitationSheet().getLastRow();
+    if(id <= 1 || id > max) return null;
+    var range = getCitationSheet().getRange(id, 1, 1, 3);
+    return range.getValues()[0]
+}
+
+
 function isAllowed(id) {
     var sheet = getDataSheet();
 
@@ -161,6 +169,22 @@ function doPost(e) {
 
     if (text.trim() === '/random') {
         const [who, what] = getRandom();
+        sendText(id, `${what} (c) ${who}`);
+        return;
+    }
+
+    if (text.trim().indexOf('/read') === 0) {
+        const id = parseInt(text.replace('/read', '').trim());
+        if(id != id) {
+            sendText(id, "Нет такой цитаты");
+            return;
+        }
+        const cite = getById(id);
+        if(!cite) {
+            sendText(id, "Нет такой цитаты");
+            return;
+        }
+        const [who, what] = cite;
         sendText(id, `${what} (c) ${who}`);
         return;
     }
