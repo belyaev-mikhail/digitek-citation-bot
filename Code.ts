@@ -68,9 +68,13 @@ function getById(id: number): any[] | null {
 function isAllowed(id) {
     var sheet = getDataSheet();
 
-    var row;
-    for (row = 2; row <= sheet.getLastRow(); ++row) if (id == sheet.getRange(row, 1).getValue()) return true;
-    return false
+    const first = 2;
+    const last = sheet.getLastRow();
+
+    const values = sheet.getRange(`A${first}:A${last}`).getValues();
+
+    for(const [value] of values) if(value == id) return true;
+    return false;
 }
 
 function citeOfTheDay() {
