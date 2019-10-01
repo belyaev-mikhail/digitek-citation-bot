@@ -41,6 +41,17 @@ function sendText(id, text) {
     Logger.log(response.getContentText());
 }
 
+function sendSticker(id, file_id) {
+    var response = UrlFetchApp.fetch(`${telegramUrl()}/sendSticker`, {
+        method: 'post',
+        payload: {
+            chat_id: "" + id,
+            sticker: file_id
+        }
+    });
+    Logger.log(response.getContentText());
+}
+
 function UUID() {
     return Utilities.getUuid()
 }
@@ -121,12 +132,18 @@ function success(id: number) {
         "Ладушки",
         "Принято",
         "+",
-        "Ладно, ладно"
+        "Ладно, ладно",
+        ")",
+        "👌",
+        "#sticker#CAADAgAD0B8AAqKKlgEj1GXRWttPPRYE",
+        "#sticker#CAADAgADaQAD4aRlBU-4f77gfg6wFgQ"
     ];
 
     const ok = variants[Math.floor(Math.random() * variants.length)];
 
-    sendText(id, ok);
+    if(ok.indexOf("#sticker#") == 0) {
+        sendSticker(id, ok.replace("#sticker#", ""))
+    } else sendText(id, ok);
 }
 
 function tryManual(text, id) {
