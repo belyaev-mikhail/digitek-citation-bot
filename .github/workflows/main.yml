@@ -16,7 +16,7 @@ jobs:
     - name: clasp.json
       run: echo "${{ secrets.CLASP_JSON }}" >.clasp.json
     - name: login
-      run: echo "${{ secrets.CLASPRC_JSON }}" >~/.clasprc.json 
+      run: echo "${{ secrets.CLASPRC_JSON }}" >$HOME/.clasprc.json 
     - name: install
       run: ./yarnw install
     - name: push
