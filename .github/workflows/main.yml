@@ -10,11 +10,11 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: secrets.sh
-      run: echo ${{ secrets.SECRETS_SH }} >>secrets.sh
+      run: echo "${{ secrets.SECRETS_SH }}" >>secrets.sh
     - name: secrets.ts
-      run: echo ${{ secrets.SECRETS_TS }} >>secrets.ts
+      run: echo "${{ secrets.SECRETS_TS }}" >>secrets.ts
     - name: clasp.json
-      run: echo ${{ secrets.CLASP_JSON }} >>.clasp.json
+      run: echo "${{ secrets.CLASP_JSON }}" >>.clasp.json
     - name: install
       run: ./yarnw install
     - name: push
