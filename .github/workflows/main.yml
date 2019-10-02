@@ -18,8 +18,8 @@ jobs:
     - name: login
       run: echo '${{ secrets.CLASPRC_JSON }}' >$HOME/.clasprc.json 
     - name: install
-      run: ./yarnw install
+      run: ./yarnw install >>/dev/null
     - name: push
-      run: ./yarnw push
+      run: ./yarnw push >>/dev/null
     - name: deploy
-      run: ./yarnw deploy
+      run: ./yarnw deploy >>/dev/null
