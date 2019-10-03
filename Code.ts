@@ -189,9 +189,9 @@ function getForwardedName(m: Message) {
     return "Some guy"
 }
 
-function COUNT_LIKES([[value]] : string[][]) {
-    if(!value) return [[0]];
-    return [[Object.keys(JSON.parse(value)).length]]
+function COUNT_LIKES(column: string[][]) {
+    var active = getCitationSheet().getLastRow();
+    return column.map(it => it[0] && [Object.keys(JSON.parse(it[0])).length] || [0]).slice(0, active - 1);
 }
 
 function success(id: number) {
@@ -225,7 +225,7 @@ function tryManual(text, id) {
         }
         const [ctext, name] = tryout;
         success(id);
-        getCitationSheet().appendRow([name.trim(), ctext.trim(), `by ${SIG}`]);
+        getCitationSheet().appendRow([name.trim(), ctext.trim(), `by ${SIG}`, "{}"]);
     }
 }
 
