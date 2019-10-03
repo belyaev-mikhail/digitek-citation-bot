@@ -46,12 +46,12 @@ function serialize(payload: object) {
     return result
 }
 
-function sendText(id, text, likeButton) {
+function sendText(id, text, likeButton: InlineKeyboardButton) {
     const payload: SendMessage = {
             chat_id: `${id}`,
             text: text,
             reply_markup: likeButton && {
-                inline_keyboard: [[{ text: "❤", callback_data: `${likeButton}` }]]
+                inline_keyboard: [[likeButton]]
             }
     };
     var response = UrlFetchApp.fetch(`${telegramUrl()}/sendMessage`, {
@@ -72,7 +72,7 @@ function answerCallbackQuery(id: string) {
     Logger.log(response.getContentText());
 }
 
-function editMessageReplyMarkup(chat_id: number, message_id: number, newButton: InlineKeyboardButton) {
+function editMessageReplyMarkup(chat_id: number, message_id: number, newButton: InlineKeyboardButton | null) {
     const payload: tl.EditMessageCaptionOptions = {
         chat_id: "" + chat_id,
         message_id: message_id,
@@ -107,18 +107,24 @@ function doGet(e) {
     return HtmlService.createHtmlOutput(`${what} (c) ${who}`);
 }
 
-function getRandom(): [string, string, string, number] {
+function getRandom(): [string, string, string, InlineKeyboardButton] {
     var max = getCitationSheet().getLastRow() - 1;
     var random = Math.floor(Math.random() * max) + 2;
-    var range = getCitationSheet().getRange(random, 1, 1, 3);
-    return range.getValues()[0].concat([random]) as [string, string, string, number]
+    var range = getCitationSheet().getRange(random, 1, 1, 4);
+    const [who, what, comment, likes] = range.getValues()[0];
+    const likesObj = JSON.parse(likes || "{}");
+
+    return [who, what, comment, { text: `${Object.keys(likesObj).length} ❤`, callback_data: `${random}` }];
 }
 
-function getById(id: number): [string, string, string, number] | null {
+function getById(id: number): [string, string, string, InlineKeyboardButton] | null {
     var max = getCitationSheet().getLastRow();
     if(id <= 1 || id > max) return null;
-    var range = getCitationSheet().getRange(id, 1, 1, 3);
-    return range.getValues()[0].concat([id]) as [string, string, string, number]
+    var range = getCitationSheet().getRange(id, 1, 1, 4);
+    const [who, what, comment, likes] = range.getValues()[0];
+    const likesObj = JSON.parse(likes || "{}");
+
+    return [who, what, comment, { text: `${Object.keys(likesObj).length} ❤`, callback_data: `${id}` }];
 }
 
 
@@ -141,8 +147,8 @@ function citeOfTheDay() {
     for (row = 2; row <= sheet.getLastRow(); ++row) {
         var id = +sheet.getRange(row, 1).getValue();
         if (id < 0) {
-            const [who, what, _, cid] = getRandom();
-            sendText(id, "Цитата дня:\n" +`${what} (c) ${who}`, cid)
+            const [who, what, _, btn] = getRandom();
+            sendText(id, "Цитата дня:\n" +`${what} (c) ${who}`, btn)
         }
     }
 }
@@ -246,8 +252,8 @@ function handleMessage(message: Message) {
             sendText(id, "Нет такой цитаты", null);
             return;
         }
-        const [who, what] = cite;
-        sendText(id, `${what} (c) ${who}`, cid);
+        const [who, what, _, btn] = cite;
+        sendText(id, `${what} (c) ${who}`, btn);
         return;
     }
 
@@ -258,7 +264,7 @@ function handleMessage(message: Message) {
         }
         var name = getForwardedName(message);
         success(id);
-        getCitationSheet().appendRow([name, text, `by ${SIG}`]);
+        getCitationSheet().appendRow([name, text, `by ${SIG}`, "{}"]);
     }
 
     if (text.trim() === "/cite") {
@@ -270,7 +276,7 @@ function handleMessage(message: Message) {
         var name = rm.from.first_name || rm.from.username;
         var text = rm.text;
         success(id);
-        getCitationSheet().appendRow([name, text, `by ${SIG}`]);
+        getCitationSheet().appendRow([name, text, `by ${SIG}`, "{}"]);
     }
 
     tryManual(text, id);
