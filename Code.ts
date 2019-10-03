@@ -51,7 +51,7 @@ function sendText(id, text, likeButton: InlineKeyboardButton) {
             chat_id: `${id}`,
             text: text,
             reply_markup: likeButton && {
-                inline_keyboard: [[likeButton]]
+                inline_keyboard: [[ likeButton ]]
             }
     };
     var response = UrlFetchApp.fetch(`${telegramUrl()}/sendMessage`, {
@@ -128,6 +128,18 @@ function getById(id: number): [string, string, string, InlineKeyboardButton] | n
     return [who, what, comment, { text: `${Object.keys(likesObj).length} ❤`, callback_data: `${id}` }];
 }
 
+function getTop(): [string, string, string, InlineKeyboardButton] | null {
+    const vals = getCitationSheet().getRange("A2:D").getValues().map((it, ix) => [ix, ...it]);
+    var max = vals.sort(
+        ([i1,,,, likes1], [i2,,,, likes2]) =>
+            (Object.keys(JSON.parse(likes2 || "{}")).length - Object.keys(JSON.parse(likes2 || "{}")).length)
+    )[0];
+
+    const [id, who, what, comment, likes] = max;
+    const likesObj = JSON.parse(likes || "{}");
+
+    return [who, what, comment, { text: `${Object.keys(likesObj).length} ❤`, callback_data: `${id}` }];
+}
 
 function isAllowed(id) {
     var sheet = getDataSheet();
@@ -247,6 +259,12 @@ function handleMessage(message: Message) {
         return;
     }
 
+    if (text.trim() === '/top') {
+        const [who, what, _, cid] = getTop();
+        sendText(id, `${what} (c) ${who}`, cid);
+        return;
+    }
+
     if (text.trim().indexOf('/read') === 0) {
         const cid = parseInt(text.replace('/read', '').trim());
         if (cid != cid) {
@@ -290,6 +308,7 @@ function handleMessage(message: Message) {
 
 function handleCallback(callback_query: tl.CallbackQuery) {
     const scriptLock = LockService.getDocumentLock();
+
     scriptLock.waitLock(30000);
     const citationId = parseInt(callback_query.data);
     if(citationId != citationId) return;
@@ -308,9 +327,9 @@ function handleCallback(callback_query: tl.CallbackQuery) {
         callback_data: `${citationId}`
     });
 
-    answerCallbackQuery(callback_query.id, like? "Разлайкано =(" : "Полайкано");
+    scriptLock.releaseLock();
 
-    scriptLock.releaseLock()
+    answerCallbackQuery(callback_query.id, like? "Разлайкано =(" : "Полайкано");
 }
 
 function doPost(e) {
