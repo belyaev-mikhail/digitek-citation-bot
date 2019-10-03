@@ -60,6 +60,17 @@ function sendText(id, text, likeButton) {
     Logger.log(response.getContentText());
 }
 
+function answerCallbackQuery(id: string) {
+    const payload: tl.AnswerCallbackQueryOptions = {
+        callback_query_id: id
+    };
+    var response = UrlFetchApp.fetch(`${telegramUrl()}/answerCallbackQuery`, {
+        method: 'post',
+        payload: serialize(payload)
+    });
+    Logger.log(response.getContentText());
+}
+
 function sendSticker(id, file_id) {
     var response = UrlFetchApp.fetch(`${telegramUrl()}/sendSticker`, {
         method: 'post',
@@ -263,6 +274,7 @@ function handleCallback(callback_query: tl.CallbackQuery) {
     if(like) delete likes[userString];
     else likes[userString] = true;
     getCitationSheet().getRange(citationId, 4).setValue(JSON.stringify(likes));
+    answerCallbackQuery(callback_query.id);
 
     scriptLock.releaseLock()
 }
