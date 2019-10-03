@@ -206,7 +206,11 @@ function success(id: number) {
         ")",
         "👌",
         "#sticker#CAADAgAD0B8AAqKKlgEj1GXRWttPPRYE",
-        "#sticker#CAADAgADaQAD4aRlBU-4f77gfg6wFgQ"
+        "#sticker#CAADAgADaQAD4aRlBU-4f77gfg6wFgQ",
+        "#sticker#CAADAgADkA0AAulVBRj7PO_rEYFLRhYE",
+        "#sticker#CAADAgAD5wIAArrAlQUWBDuqQjBTVBYE",
+        "#sticker#CAADAgAD0gMAAsSraAvL_RrrpopXKxYE",
+        "#sticker#CAADAgADsAMAAvoLtgiYBpwYpLy1OhYE",
     ];
 
     const ok = variants[Math.floor(Math.random() * variants.length)];
