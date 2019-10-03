@@ -129,7 +129,7 @@ function getById(id: number): [string, string, string, InlineKeyboardButton] | n
 }
 
 function getTop(): [string, string, string, InlineKeyboardButton] | null {
-    const vals = getCitationSheet().getRange("A2:D").getValues().map((it, ix) => [ix, ...it]);
+    const vals = getCitationSheet().getRange("A2:D").getValues().map((it, ix) => [ix + 2, ...it]);
     var max = vals.sort(
         ([i1,,,, likes1], [i2,,,, likes2]) =>
             (Object.keys(JSON.parse(likes2 || "{}")).length - Object.keys(JSON.parse(likes1 || "{}")).length)
