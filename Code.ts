@@ -1,4 +1,5 @@
 import * as tl from "node-telegram-bot-api";
+import {InlineKeyboardButton} from "node-telegram-bot-api";
 
 declare var BOT_TOKEN;
 declare var SCRIPT_ID;
@@ -39,8 +40,8 @@ function serialize(payload: object) {
     const result = {};
     for(const key in payload) if(payload.hasOwnProperty(key)) {
         const value = payload[key];
-        if(typeof value === 'object') result[key] = JSON.stringify(value);
-        else result[key] = "" + value;
+        if(value != null && typeof value === 'object') result[key] = JSON.stringify(value);
+        else result[key] = value;
     }
     return result
 }
@@ -65,6 +66,20 @@ function answerCallbackQuery(id: string) {
         callback_query_id: id
     };
     var response = UrlFetchApp.fetch(`${telegramUrl()}/answerCallbackQuery`, {
+        method: 'post',
+        payload: serialize(payload)
+    });
+    Logger.log(response.getContentText());
+}
+
+function editMessageReplyMarkup(message_id: number, newButton: InlineKeyboardButton) {
+    const payload: tl.EditMessageCaptionOptions = {
+        message_id: message_id,
+        reply_markup: {
+            inline_keyboard: [[ newButton ]]
+        }
+    };
+    var response = UrlFetchApp.fetch(`${telegramUrl()}/editMessageReplyMarkup`, {
         method: 'post',
         payload: serialize(payload)
     });
@@ -274,6 +289,12 @@ function handleCallback(callback_query: tl.CallbackQuery) {
     if(like) delete likes[userString];
     else likes[userString] = true;
     getCitationSheet().getRange(citationId, 4).setValue(JSON.stringify(likes));
+
+    editMessageReplyMarkup(callback_query.message.message_id, {
+        text: "❤",
+        callback_data: `${citationId}`
+    });
+
     answerCallbackQuery(callback_query.id);
 
     scriptLock.releaseLock()
