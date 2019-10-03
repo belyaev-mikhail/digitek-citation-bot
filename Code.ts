@@ -176,6 +176,11 @@ function getForwardedName(m: Message) {
     return "Some guy"
 }
 
+function COUNT_LIKES([[value]] : string[][]) {
+    if(!value) return 0;
+    return Object.keys(JSON.parse(value)).length
+}
+
 function success(id: number) {
     const variants = [
         "Ok",
