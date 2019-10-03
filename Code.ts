@@ -61,9 +61,10 @@ function sendText(id, text, likeButton: InlineKeyboardButton) {
     Logger.log(response.getContentText());
 }
 
-function answerCallbackQuery(id: string) {
+function answerCallbackQuery(id: string, text: string) {
     const payload: tl.AnswerCallbackQueryOptions = {
-        callback_query_id: id
+        callback_query_id: id,
+        text: text
     };
     var response = UrlFetchApp.fetch(`${telegramUrl()}/answerCallbackQuery`, {
         method: 'post',
@@ -307,7 +308,7 @@ function handleCallback(callback_query: tl.CallbackQuery) {
         callback_data: `${citationId}`
     });
 
-    answerCallbackQuery(callback_query.id);
+    answerCallbackQuery(callback_query.id, like? "Разлайкано =(" : "Полайкано");
 
     scriptLock.releaseLock()
 }
