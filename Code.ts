@@ -30,12 +30,15 @@ function setWebhook() {
     Logger.log(response.getContentText());
 }
 
-function sendText(id, text) {
+function sendText(id, text, likeButton) {
     var response = UrlFetchApp.fetch(`${telegramUrl()}/sendMessage`, {
         method: 'post',
         payload: {
             chat_id: "" + id,
-            text: text
+            text: text,
+            reply_markup: likeButton && {
+                inline_keyboard: [[{ text: "❤", callback_data: '' + likeButton }]]
+            }
         }
     });
     Logger.log(response.getContentText());
@@ -61,18 +64,18 @@ function doGet(e) {
     return HtmlService.createHtmlOutput(`${what} (c) ${who}`);
 }
 
-function getRandom() {
+function getRandom(): [string, string, string, number] {
     var max = getCitationSheet().getLastRow() - 1;
     var random = Math.floor(Math.random() * max) + 2;
     var range = getCitationSheet().getRange(random, 1, 1, 3);
-    return range.getValues()[0]
+    return range.getValues()[0].concat([random]) as [string, string, string, number]
 }
 
-function getById(id: number): any[] | null {
+function getById(id: number): [string, string, string, number] | null {
     var max = getCitationSheet().getLastRow();
     if(id <= 1 || id > max) return null;
     var range = getCitationSheet().getRange(id, 1, 1, 3);
-    return range.getValues()[0]
+    return range.getValues()[0].concat([id]) as [string, string, string, number]
 }
 
 
@@ -95,8 +98,8 @@ function citeOfTheDay() {
     for (row = 2; row <= sheet.getLastRow(); ++row) {
         var id = +sheet.getRange(row, 1).getValue();
         if (id < 0) {
-            const [who, what] = getRandom();
-            sendText(id, "Цитата дня:\n" +`${what} (c) ${who}`)
+            const [who, what, _, cid] = getRandom();
+            sendText(id, "Цитата дня:\n" +`${what} (c) ${who}`, cid)
         }
     }
 }
@@ -143,14 +146,14 @@ function success(id: number) {
 
     if(ok.indexOf("#sticker#") == 0) {
         sendSticker(id, ok.replace("#sticker#", ""))
-    } else sendText(id, ok);
+    } else sendText(id, ok, null);
 }
 
 function tryManual(text, id) {
     if (text.trim().indexOf("/cite") == 0) {
         const tryout = text.replace("/cite", "").replace("(с)", "(c)").trim().split("(c)");
         if (tryout.length != 2) {
-            sendText(id, "Попробуй так: /cite Сообщение (c) Вася");
+            sendText(id, "Попробуй так: /cite Сообщение (c) Вася", null);
             return;
         }
         const [ctext, name] = tryout;
@@ -159,14 +162,9 @@ function tryManual(text, id) {
     }
 }
 
-function doPost(e) {
-    getDebugSheet().appendRow([e.postData.contents]);
-
-    var data = JSON.parse(e.postData.contents) as TlUpdate;
-    if (!data.message) return;
-
-    var text = data.message.text;
-    var id = data.message.chat.id;
+function handleMessage(message: Message) {
+    var text = message.text;
+    var id = message.chat.id;
 
     if (!text) return;
 
@@ -179,53 +177,53 @@ function doPost(e) {
     if (text.trim() === getDataSheet().getRange(1, 1).getValue()) {
         if (isAllowed(id)) return;
         getDataSheet().appendRow([id]);
-        sendText(id, "Ок, погнали");
+        sendText(id, "Ок, погнали", null);
         return;
     }
 
     if (!isAllowed(id)) {
-        sendText(id, "Ты кто? Пришли мне данные ячейки A1 из таблицы 'Data' плез");
+        sendText(id, "Ты кто? Пришли мне данные ячейки A1 из таблицы 'Data' плез", null);
         return;
     }
 
     if (text.trim() === '/random') {
-        const [who, what] = getRandom();
-        sendText(id, `${what} (c) ${who}`);
+        const [who, what, _, cid] = getRandom();
+        sendText(id, `${what} (c) ${who}`, cid);
         return;
     }
 
     if (text.trim().indexOf('/read') === 0) {
         const cid = parseInt(text.replace('/read', '').trim());
-        if(cid != cid) {
-            sendText(id, "Нет такой цитаты");
+        if (cid != cid) {
+            sendText(id, "Нет такой цитаты", null);
             return;
         }
         const cite = getById(cid);
-        if(!cite) {
-            sendText(id, "Нет такой цитаты");
+        if (!cite) {
+            sendText(id, "Нет такой цитаты", null);
             return;
         }
         const [who, what] = cite;
-        sendText(id, `${what} (c) ${who}`);
+        sendText(id, `${what} (c) ${who}`, cid);
         return;
     }
 
-    if (data.message.chat.type === "private") {
-        if (!data.message.forward_from && !data.message.forward_sender_name) {
+    if (message.chat.type === "private") {
+        if (!message.forward_from && !message.forward_sender_name) {
             tryManual(text, id);
             return
         }
-        var name = getForwardedName(data.message);
+        var name = getForwardedName(message);
         success(id);
         getCitationSheet().appendRow([name, text, `by ${SIG}`]);
     }
 
     if (text.trim() === "/cite") {
-        if (!data.message.reply_to_message) {
-            sendText(id, "Я умею цитировать только реплаи, сорян\nМожешь зафорвардить сообщение мне в личку");
+        if (!message.reply_to_message) {
+            sendText(id, "Я умею цитировать только реплаи, сорян\nМожешь зафорвардить сообщение мне в личку", null);
             return;
         }
-        var rm = data.message.reply_to_message;
+        var rm = message.reply_to_message;
         var name = rm.from.first_name || rm.from.username;
         var text = rm.text;
         success(id);
@@ -233,4 +231,30 @@ function doPost(e) {
     }
 
     tryManual(text, id);
+}
+
+function handleCallback(callback_query: tl.CallbackQuery) {
+    const scriptLock = LockService.getDocumentLock();
+    scriptLock.waitLock(30000);
+    const citationId = parseInt(callback_query.data);
+    if(citationId != citationId) return;
+    const cite = getById(citationId);
+    if(cite == null) return;
+
+    const likes = JSON.parse(getCitationSheet().getRange(citationId, 4).getValue() || "{}") as object;
+    const userString = '' + callback_query.from.id;
+    const like = likes[userString];
+    if(like) delete likes[userString];
+    else likes[userString] = true;
+    getCitationSheet().getRange(citationId, 4).setValue(JSON.stringify(likes));
+
+    scriptLock.releaseLock()
+}
+
+function doPost(e) {
+    getDebugSheet().appendRow([e.postData.contents]);
+
+    var data = JSON.parse(e.postData.contents) as TlUpdate;
+    if (data.message) handleMessage(data.message);
+    if (data.callback_query) handleCallback(data.callback_query);
 }
