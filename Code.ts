@@ -72,9 +72,10 @@ function answerCallbackQuery(id: string) {
     Logger.log(response.getContentText());
 }
 
-function editMessageReplyMarkup(inline_message_id: string, newButton: InlineKeyboardButton) {
+function editMessageReplyMarkup(chat_id: number, message_id: number, newButton: InlineKeyboardButton) {
     const payload: tl.EditMessageCaptionOptions = {
-        inline_message_id: inline_message_id,
+        chat_id: "" + chat_id,
+        message_id: message_id,
         reply_markup: {
             inline_keyboard: [[ newButton ]]
         }
@@ -290,7 +291,7 @@ function handleCallback(callback_query: tl.CallbackQuery) {
     else likes[userString] = true;
     getCitationSheet().getRange(citationId, 4).setValue(JSON.stringify(likes));
 
-    editMessageReplyMarkup(callback_query.inline_message_id, {
+    editMessageReplyMarkup(callback_query.message.chat.id, callback_query.message.message_id, {
         text: Object.keys(likes).length + " ❤",
         callback_data: `${citationId}`
     });
