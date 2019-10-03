@@ -30,16 +30,32 @@ function setWebhook() {
     Logger.log(response.getContentText());
 }
 
+type SendMessage = tl.SendMessageOptions & {
+    chat_id: string | number,
+    text?: string
+}
+
+function serialize(payload: object) {
+    const result = {};
+    for(const key in payload) if(payload.hasOwnProperty(key)) {
+        const value = payload[key];
+        if(typeof value === 'object') result[key] = JSON.stringify(value);
+        else result[key] = "" + value;
+    }
+    return result
+}
+
 function sendText(id, text, likeButton) {
-    var response = UrlFetchApp.fetch(`${telegramUrl()}/sendMessage`, {
-        method: 'post',
-        payload: {
-            chat_id: "" + id,
+    const payload: SendMessage = {
+            chat_id: `${id}`,
             text: text,
             reply_markup: likeButton && {
-                inline_keyboard: [[{ text: "❤", callback_data: '' + likeButton }]]
+                inline_keyboard: [[{ text: "❤", callback_data: `${likeButton}` }]]
             }
-        }
+    };
+    var response = UrlFetchApp.fetch(`${telegramUrl()}/sendMessage`, {
+        method: 'post',
+        payload: serialize(payload)
     });
     Logger.log(response.getContentText());
 }
