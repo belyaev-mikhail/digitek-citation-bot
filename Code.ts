@@ -326,7 +326,7 @@ function handleCallback(callback_query: tl.CallbackQuery) {
 
         likes = JSON.parse(range.getValue() || "{}") as object;
         const userString = '' + callback_query.from.id;
-        const like = likes[userString];
+        like = likes[userString];
         if(like) delete likes[userString];
         else likes[userString] = true;
         range.setValue(JSON.stringify(likes));
