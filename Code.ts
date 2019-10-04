@@ -313,26 +313,30 @@ function handleMessage(message: Message) {
 function handleCallback(callback_query: tl.CallbackQuery) {
     const scriptLock = LockService.getDocumentLock();
 
-    scriptLock.waitLock(30000);
     const citationId = parseInt(callback_query.data);
     if(citationId != citationId) return;
     const cite = getById(citationId);
     if(cite == null) return;
 
-    const likes = JSON.parse(getCitationSheet().getRange(citationId, 4).getValue() || "{}") as object;
-    const userString = '' + callback_query.from.id;
-    const like = likes[userString];
-    if(like) delete likes[userString];
-    else likes[userString] = true;
-    getCitationSheet().getRange(citationId, 4).setValue(JSON.stringify(likes));
+    let likes: object;
+    let like: any | undefined;
+    scriptLock.waitLock(30000);
+    try {
+        const range = getCitationSheet().getRange(citationId, 4);
 
+        likes = JSON.parse(range.getValue() || "{}") as object;
+        const userString = '' + callback_query.from.id;
+        const like = likes[userString];
+        if(like) delete likes[userString];
+        else likes[userString] = true;
+        range.setValue(JSON.stringify(likes));
+    } finally {
+        scriptLock.releaseLock();
+    }
     editMessageReplyMarkup(callback_query.message.chat.id, callback_query.message.message_id, {
         text: Object.keys(likes).length + " ❤",
         callback_data: `${citationId}`
     });
-
-    scriptLock.releaseLock();
-
     answerCallbackQuery(callback_query.id, like? "Разлайкано =(" : "Полайкано");
 }
 
