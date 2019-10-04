@@ -118,6 +118,15 @@ function getRandom(): [string, string, string, InlineKeyboardButton] {
     return [who, what, comment, { text: `${Object.keys(likesObj).length} ❤`, callback_data: `${random}` }];
 }
 
+function getLast(): [string, string, string, InlineKeyboardButton] {
+    var last = getCitationSheet().getLastRow();
+    var range = getCitationSheet().getRange(last, 1, 1, 4);
+    const [who, what, comment, likes] = range.getValues()[0];
+    const likesObj = JSON.parse(likes || "{}");
+
+    return [who, what, comment, { text: `${Object.keys(likesObj).length} ❤`, callback_data: `${last}` }];
+}
+
 function getById(id: number): [string, string, string, InlineKeyboardButton] | null {
     var max = getCitationSheet().getLastRow();
     if(id <= 1 || id > max) return null;
@@ -265,6 +274,12 @@ function handleMessage(message: Message) {
 
     if (text.trim() === '/top') {
         const [who, what, _, cid] = getTop();
+        sendText(id, `${what} (c) ${who}`, cid);
+        return;
+    }
+
+    if (text.trim() === '/last') {
+        const [who, what, _, cid] = getLast();
         sendText(id, `${what} (c) ${who}`, cid);
         return;
     }
