@@ -1,23 +1,6 @@
 import * as tl from "node-telegram-bot-api";
 import {InlineKeyboardButton} from "node-telegram-bot-api";
 
-declare namespace cNamedLock {
-    class NamedLock {
-        constructor(optTimeOut?: number, optWaitTime?: number,
-                    optUseCache?: boolean, optMinSleepTime?: number)
-
-        cleanUp(): void
-        setSameInstanceLocked(sameInstanceLocked: boolean): NamedLock
-        setKey(...args: any): NamedLock
-        getKey(): string
-        isLocked(): boolean
-        lock(optWho ?: string): NamedLock | null
-        getInfo(): object | null
-        unlock(optWho ?: string): NamedLock
-        protect<T>(who: string, func: () => T): { result: T, locked: boolean }
-    }
-}
-
 declare var BOT_TOKEN;
 declare var SCRIPT_ID;
 
@@ -343,8 +326,7 @@ function handleMessage(message: Message) {
 }
 
 function handleCallback(callback_query: tl.CallbackQuery) {
-    const scriptLock = new cNamedLock.NamedLock();
-    scriptLock.setKey(callback_query.data);
+    const scriptLock = LockService.getDocumentLock();
 
     const citationId = parseInt(callback_query.data);
     if(citationId != citationId) return;
@@ -353,7 +335,7 @@ function handleCallback(callback_query: tl.CallbackQuery) {
 
     let likes: object;
     let like: any | undefined;
-    scriptLock.lock();
+    scriptLock.waitLock(30000);
     try {
         const range = getCitationSheet().getRange(citationId, 4);
 
@@ -364,7 +346,7 @@ function handleCallback(callback_query: tl.CallbackQuery) {
         else likes[userString] = true;
         range.setValue(JSON.stringify(likes));
     } finally {
-        scriptLock.unlock();
+        scriptLock.releaseLock();
     }
     editMessageReplyMarkup(callback_query.message.chat.id, callback_query.message.message_id, {
         text: Object.keys(likes).length + " ❤",
