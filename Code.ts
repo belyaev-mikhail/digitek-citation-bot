@@ -27,6 +27,71 @@ type CitationSource = CitationSourceMsg & ({
     type: "forward"
 });
 
+type EditableMessages = {
+    [key: string]: number
+}
+
+function cacheKey(source: CitationSourceMsg) {
+    return `${source.chatId}###${source.messageId}`
+}
+
+
+function evaluateEditableMessages() {
+    const editableMessages: EditableMessages = {};
+    const last = getCitationSheet().getLastRow();
+    const vals = getCitationSheet().getRange(`F2:F${last}`).getValues();
+
+    vals.forEach((val, ix) => {
+        const source: CitationSource = JSON.parse(val[0] || "null");
+        if (!source)
+            return;
+
+        if (source.type !== "manual")
+            return;
+
+        editableMessages[cacheKey(source)] = ix + 2;
+    });
+    return editableMessages;
+}
+
+function getOrEvaluateEditableMessages(): [EditableMessages, boolean] {
+    const cache = CacheService.getDocumentCache();
+    let emStr = cache.get("editableMessages");
+    if (emStr) {
+        getDebugSheet().appendRow([emStr, false]);
+        return [JSON.parse(emStr), false];
+    }
+    let em = evaluateEditableMessages();
+    return [em, true]
+}
+
+function putEditableMessagesToCache(em: EditableMessages) {
+    CacheService.getDocumentCache().put("editableMessages", JSON.stringify(em), 21600);
+}
+
+function getEditableMessages(): EditableMessages {
+    let [em, evaluated] = getOrEvaluateEditableMessages();
+    if (evaluated)
+        putEditableMessagesToCache(em);
+    return em;
+}
+
+function updateEditableMessagesCache(source: CitationSource, line: number) {
+    if (source.type !== "manual")
+        return;
+
+    let [em, evaluated] = getOrEvaluateEditableMessages();
+
+    em[cacheKey(source)] = line;
+
+    putEditableMessagesToCache(em);
+}
+
+function invalidateEditableMeessagesCache() {
+    const cache = CacheService.getDocumentCache();
+    cache.remove("editableMessages");
+}
+
 function getMe() {
     var url = `${telegramUrl()}/getMe`;
     var response = UrlFetchApp.fetch(url);
@@ -269,9 +334,13 @@ function success(id: number) {
     } else sendText(id, ok, null);
 }
 
+function parseCite(text: string): [string, string] {
+    return text.replace("/cite", "").replace("(с)", "(c)").trim().split("(c)")
+}
+
 function tryManual(text: string, id: number, messageId: number, chatId: number) {
     if (text.trim().indexOf("/cite") == 0) {
-        const tryout = text.replace("/cite", "").replace("(с)", "(c)").trim().split("(c)");
+        const tryout = parseCite(text);
         if (tryout.length != 2) {
             sendText(id, "Попробуй так: /cite Сообщение (c) Вася", null);
             return;
@@ -293,6 +362,7 @@ function tryManual(text: string, id: number, messageId: number, chatId: number) 
             null,
             JSON.stringify(src)
         ]);
+        updateEditableMessagesCache(src, getCitationSheet().getLastRow());
     }
 }
 
@@ -365,6 +435,10 @@ function handleMessage(message: Message) {
         return;
     }
 
+    if (text.trim().indexOf('/debug_get_em') === 0) { // TODO delete me
+        sendText(id, JSON.stringify(getEditableMessages()), null);
+    }
+
     if (message.chat.type === "private") {
         if (!message.forward_from && !message.forward_sender_name) {
             tryManual(text, id, message.message_id, message.chat.id);
@@ -380,6 +454,7 @@ function handleMessage(message: Message) {
         };
 
         getCitationSheet().appendRow([name, text, `by ${SIG}`, "{}", null, JSON.stringify(src)]);
+        updateEditableMessagesCache(src, getCitationSheet().getLastRow());
     }
 
     if (text.trim() === "/cite") {
@@ -403,9 +478,28 @@ function handleMessage(message: Message) {
         };
 
         getCitationSheet().appendRow([name, text, `by ${SIG}`, "{}", null, JSON.stringify(src)]);
+        updateEditableMessagesCache(src, getCitationSheet().getLastRow());
     }
 
     tryManual(text, id, message.message_id, message.chat.id);
+}
+
+function handleEditedMessage(editedMessage: Message) {
+    let row = getEditableMessages()[cacheKey({
+        messageId: editedMessage.message_id,
+        chatId: editedMessage.chat.id
+    })];
+
+    if (!row)
+        return;
+
+    let tryout = parseCite(editedMessage.text);
+
+    if (tryout.length != 2) {
+        return; // No way to report the error back to user
+    }
+
+    getCitationSheet().getRange(`A${row}:B${row}`).setValues([tryout]);
 }
 
 function handleCallback(callback_query: tl.CallbackQuery) {
@@ -443,5 +537,6 @@ function doPost(e) {
 
     var data = JSON.parse(e.postData.contents) as TlUpdate;
     if (data.message) handleMessage(data.message);
+    if (data.edited_message) handleEditedMessage(data.edited_message);
     if (data.callback_query) handleCallback(data.callback_query);
 }
