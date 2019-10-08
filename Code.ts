@@ -152,7 +152,7 @@ function getTop(): [string, string, string, InlineKeyboardButton] | null {
 
 function searchCitations(text: string): string[] {
     return [...getCitationSheet().getRange("A2:B").getValues().map((it, ix) => [ix + 2, ...it])
-        .filter(it => it[2].indexOf(text) !== -1)
+        .filter(it => it[2].toLowerCase().indexOf(text.toLowerCase()) !== -1)
         .map((it) => `Цитата #${it[0]}:\n${it[2]} (c) ${it[1]}`)];
 }
 
