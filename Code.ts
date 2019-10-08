@@ -226,6 +226,18 @@ function success(id: number) {
         "#sticker#CAADAgAD5wIAArrAlQUWBDuqQjBTVBYE",
         "#sticker#CAADAgAD0gMAAsSraAvL_RrrpopXKxYE",
         "#sticker#CAADAgADsAMAAvoLtgiYBpwYpLy1OhYE",
+        "#sticker#CAADAgAD_goAAipVGAIceOHE1A-ZDRYE",
+        "#sticker#CAADAgADUgADI1nODLUg_PUBd8WYFgQ",
+        "#sticker#CAADAgAD8AIAArVx2ga4Ryudl_pd6BYE",
+        "#sticker#CAADAgADnAADV08VCF49wTfBNSDPFgQ",
+        "#sticker#CAADBAADCgEAAtDeBQABitq9tV0QVxIWBA",
+        "#sticker#CAADAgADoQADSMbXDWv_X0yWfIDDFgQ",
+        "#sticker#CAADBQADqgAD3HgMCHiJ-htl5pJ3FgQ",
+        "#sticker#CAADBAADNQADXHLuDXgxa8XOdXcsFgQ",
+        "#sticker#CAADBAADBS4AAnzugwumtbRvD4kKCRYE",
+        "#sticker#CAADAgADfwIAAgk7OxMbpktijzn0mxYE",
+        "#sticker#CAADAgADFQADLdJqJ6EwxGXGQvrVFgQ",
+        "#sticker#CAADAgADSRwAAkKvaQABevwAAfvwwHBqFgQ",
     ];
 
     const ok = variants[Math.floor(Math.random() * variants.length)];
