@@ -13,6 +13,20 @@ const getDebugSheet = () => SpreadsheetApp.getActiveSpreadsheet().getSheets()[2]
 
 const SIG = "@digitek_citation_bot";
 
+type CitationSourceMsg = {
+    messageId: number,
+    chatId: number
+}
+
+type CitationSource = CitationSourceMsg & ({
+    type: "manual"
+} | {
+    type: "reply"
+    replyTo: CitationSourceMsg // Not used yet
+} | {
+    type: "forward"
+});
+
 function getMe() {
     var url = `${telegramUrl()}/getMe`;
     var response = UrlFetchApp.fetch(url);
@@ -255,7 +269,7 @@ function success(id: number) {
     } else sendText(id, ok, null);
 }
 
-function tryManual(text, id) {
+function tryManual(text: string, id: number, messageId: number, chatId: number) {
     if (text.trim().indexOf("/cite") == 0) {
         const tryout = text.replace("/cite", "").replace("(с)", "(c)").trim().split("(c)");
         if (tryout.length != 2) {
@@ -264,7 +278,21 @@ function tryManual(text, id) {
         }
         const [ctext, name] = tryout;
         success(id);
-        getCitationSheet().appendRow([name.trim(), ctext.trim(), `by ${SIG}`, "{}"]);
+
+        const src: CitationSource = {
+            messageId,
+            chatId,
+            type: "manual"
+        };
+
+        getCitationSheet().appendRow([
+            name.trim(),
+            ctext.trim(),
+            `by ${SIG}`,
+            "{}",
+            null,
+            JSON.stringify(src)
+        ]);
     }
 }
 
@@ -339,12 +367,19 @@ function handleMessage(message: Message) {
 
     if (message.chat.type === "private") {
         if (!message.forward_from && !message.forward_sender_name) {
-            tryManual(text, id);
+            tryManual(text, id, message.message_id, message.chat.id);
             return
         }
         var name = getForwardedName(message);
         success(id);
-        getCitationSheet().appendRow([name, text, `by ${SIG}`, "{}"]);
+
+        const src: CitationSource = {
+            messageId: message.message_id,
+            chatId: message.chat.id,
+            type: "forward"
+        };
+
+        getCitationSheet().appendRow([name, text, `by ${SIG}`, "{}", null, JSON.stringify(src)]);
     }
 
     if (text.trim() === "/cite") {
@@ -356,10 +391,21 @@ function handleMessage(message: Message) {
         var name = rm.from.first_name || rm.from.username;
         var text = rm.text;
         success(id);
-        getCitationSheet().appendRow([name, text, `by ${SIG}`, "{}"]);
+
+        const src: CitationSource = {
+            messageId: message.message_id,
+            chatId: message.chat.id,
+            replyTo: {
+                messageId: message.reply_to_message.message_id,
+                chatId: message.reply_to_message.chat.id,
+            },
+            type: "reply"
+        };
+
+        getCitationSheet().appendRow([name, text, `by ${SIG}`, "{}", null, JSON.stringify(src)]);
     }
 
-    tryManual(text, id);
+    tryManual(text, id, message.message_id, message.chat.id);
 }
 
 function handleCallback(callback_query: tl.CallbackQuery) {
