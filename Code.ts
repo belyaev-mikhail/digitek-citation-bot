@@ -51,6 +51,7 @@ function sendText(id, text: string, likeButton: InlineKeyboardButton) {
         for(const chunk of text.match(/[^]{1,4096}/g)) {
             sendText(id, chunk, chunk.length < 4096 ? likeButton : null)
         }
+        return
     }
     const payload: SendMessage = {
             chat_id: `${id}`,
