@@ -143,7 +143,8 @@ function getById(id: number): [string, string, string, InlineKeyboardButton] | n
 }
 
 function getTop(): [string, string, string, InlineKeyboardButton] | null {
-    const vals = getCitationSheet().getRange("A2:D").getValues().map((it, ix) => [ix + 2, ...it]);
+    const last = getCitationSheet().getLastRow();
+    const vals = getCitationSheet().getRange(`A2:D${last}`).getValues().map((it, ix) => [ix + 2, ...it]);
     var max = vals.sort(
         ([i1,,,, likes1], [i2,,,, likes2]) =>
             (Object.keys(JSON.parse(likes2 || "{}")).length - Object.keys(JSON.parse(likes1 || "{}")).length)
@@ -156,7 +157,8 @@ function getTop(): [string, string, string, InlineKeyboardButton] | null {
 }
 
 function searchCitations(text: string): string[] {
-    return [...getCitationSheet().getRange("A2:B").getValues().map((it, ix) => [ix + 2, ...it])
+    const last = getCitationSheet().getLastRow();
+    return [...getCitationSheet().getRange(`A2:B${last}`).getValues().map((it, ix) => [ix + 2, ...it])
         .filter(([,, what]) => what.toLowerCase().indexOf(text.toLowerCase()) !== -1)
         .map(([id, who, what]) => `Цитата #${id}:\n${what} (c) ${who}`)];
 }
