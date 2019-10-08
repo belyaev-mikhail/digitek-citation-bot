@@ -151,9 +151,9 @@ function getTop(): [string, string, string, InlineKeyboardButton] | null {
 }
 
 function searchCitations(text: string): string[] {
-    return [...getCitationSheet().getRange("A2:B").getValues()
-        .map((it, ix) => `Цитата #${ix+2}:\n${it[1]} (c) ${it[0]}`)
-        .filter(it => it[1].indexOf(text) !== -1)];
+    return [...getCitationSheet().getRange("A2:B").getValues().map((it, ix) => [ix + 2, ...it])
+        .filter(it => it[2].indexOf(text) !== -1)
+        .map((it) => `Цитата #${it[0]}:\n${it[2]} (c) ${it[1]}`)];
 }
 
 function isAllowed(id) {
