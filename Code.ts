@@ -150,6 +150,11 @@ function getTop(): [string, string, string, InlineKeyboardButton] | null {
     return [who, what, comment, { text: `${Object.keys(likesObj).length} ❤`, callback_data: `${id}` }];
 }
 
+function searchCitations(text: string): string[] {
+    return [...getCitationSheet().getRange("A2:B").getValues().filter(it => it[1].indexOf(text) !== -1)
+        .map((it, ix) => `Цитата #${ix+2}:\n${it[1]} (c) ${it[0]}`)];
+}
+
 function isAllowed(id) {
     var sheet = getDataSheet();
 
@@ -297,6 +302,17 @@ function handleMessage(message: Message) {
         }
         const [who, what, _, btn] = cite;
         sendText(id, `${what} (c) ${who}`, btn);
+        return;
+    }
+    
+    if (text.trim().indexOf('/search') === 0) {
+        const searchText = text.replace('/search', '').trim();
+        const citations = searchCitations(searchText);
+        if (citations.length == 0) {
+        sendText(id, "Нет таких цитат", null);
+            return;
+        }
+        sendText(id, citations.join("\n\n"), null);
         return;
     }
 
