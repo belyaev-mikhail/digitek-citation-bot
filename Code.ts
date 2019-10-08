@@ -152,8 +152,8 @@ function getTop(): [string, string, string, InlineKeyboardButton] | null {
 
 function searchCitations(text: string): string[] {
     return [...getCitationSheet().getRange("A2:B").getValues().map((it, ix) => [ix + 2, ...it])
-        .filter(it => it[2].toLowerCase().indexOf(text.toLowerCase()) !== -1)
-        .map((it) => `Цитата #${it[0]}:\n${it[2]} (c) ${it[1]}`)];
+        .filter(([,, what]) => what.toLowerCase().indexOf(text.toLowerCase()) !== -1)
+        .map(([id, who, what]) => `Цитата #${id}:\n${what} (c) ${who}`)];
 }
 
 function isAllowed(id) {
@@ -322,7 +322,7 @@ function handleMessage(message: Message) {
         const searchText = text.replace('/search', '').trim();
         const citations = searchCitations(searchText);
         if (citations.length == 0) {
-        sendText(id, "Нет таких цитат", null);
+            sendText(id, "Нет таких цитат", null);
             return;
         }
         sendText(id, citations.join("\n\n"), null);
