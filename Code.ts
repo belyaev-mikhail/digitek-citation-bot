@@ -48,7 +48,7 @@ function serialize(payload: object) {
 
 function sendText(id, text: string, likeButton: InlineKeyboardButton) {
     if(text.length > 4096) {
-        for(const chunk of text.match(/.{1,4096}/g)) {
+        for(const chunk of text.match(/[^]{1,4096}/g)) {
             sendText(id, chunk, chunk.length < 4096 ? likeButton : null)
         }
     }
