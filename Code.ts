@@ -46,7 +46,12 @@ function serialize(payload: object) {
     return result
 }
 
-function sendText(id, text, likeButton: InlineKeyboardButton) {
+function sendText(id, text: string, likeButton: InlineKeyboardButton) {
+    if(text.length > 4096) {
+        for(const chunk of text.match(/.{1,4096}/g)) {
+            sendText(id, chunk, chunk.length < 4096 ? likeButton : null)
+        }
+    }
     const payload: SendMessage = {
             chat_id: `${id}`,
             text: text,
