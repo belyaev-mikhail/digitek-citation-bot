@@ -569,11 +569,11 @@ function doPost(e) {
     var data = JSON.parse(e.postData.contents) as TlUpdate;
     try {
         if (data.message) handleMessage(data.message);
-        if (data.edited_message) handleEditedMessage(data.edited_message);
-        if (data.callback_query) handleCallback(data.callback_query);
     } catch (e) {
         sendText(data.message.chat.id, "Что-то пошло не так:\n" + e.toString(), null);
     }
+    if (data.edited_message) handleEditedMessage(data.edited_message);
+    if (data.callback_query) handleCallback(data.callback_query);
 }
 
 interface SpreadsheetEdit {
