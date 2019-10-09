@@ -1,3 +1,4 @@
+import gas = GoogleAppsScript;
 import * as tl from "node-telegram-bot-api";
 import {InlineKeyboardButton} from "node-telegram-bot-api";
 
@@ -12,6 +13,101 @@ const getDataSheet = () => SpreadsheetApp.getActiveSpreadsheet().getSheets()[1];
 const getDebugSheet = () => SpreadsheetApp.getActiveSpreadsheet().getSheets()[2];
 
 const SIG = "@digitek_citation_bot";
+
+type CitationSourceMsg = {
+    messageId: number,
+    chatId: number
+}
+
+type CitationSource = CitationSourceMsg & ({
+    type: "manual"
+} | {
+    type: "reply"
+    replyTo: CitationSourceMsg // Not used yet
+} | {
+    type: "forward"
+});
+
+type EditableMessages = {
+    [key: string]: number
+}
+
+function cacheKey(source: CitationSourceMsg) {
+    return `${source.chatId}###${source.messageId}`
+}
+
+
+function withLock(code: () => void) {
+    const scriptLock = LockService.getDocumentLock();
+    scriptLock.tryLock(30000);
+    try {
+        code()
+    } finally {
+        scriptLock.releaseLock()
+    }
+}
+
+function evaluateEditableMessages() {
+    const editableMessages: EditableMessages = {};
+    const last = getCitationSheet().getLastRow();
+    const vals = getCitationSheet().getRange(`F2:F${last}`).getValues();
+
+    vals.forEach((val, ix) => {
+        const source: CitationSource = JSON.parse(val[0] || "null");
+        if (!source)
+            return;
+
+        if (source.type !== "manual")
+            return;
+
+        editableMessages[cacheKey(source)] = ix + 2;
+    });
+    return editableMessages;
+}
+
+function getOrEvaluateEditableMessages(): [EditableMessages, boolean] {
+    const cache = CacheService.getDocumentCache();
+    let emStr = cache.get("editableMessages");
+    if (emStr) {
+        return [JSON.parse(emStr), false];
+    }
+    let em = evaluateEditableMessages();
+    return [em, true]
+}
+
+function putEditableMessagesToCache(em: EditableMessages) {
+    CacheService.getDocumentCache().put("editableMessages", JSON.stringify(em), 21600);
+}
+
+function getEditableMessages(): EditableMessages {
+    let em: EditableMessages = {};
+    let evaluated: boolean = false;
+    withLock(() => {
+        [em, evaluated] = getOrEvaluateEditableMessages();
+        if (evaluated)
+            putEditableMessagesToCache(em);
+    });
+
+    return em;
+}
+
+function updateEditableMessagesCache(source: CitationSource, line: number) {
+    if (source.type !== "manual")
+        return;
+
+    let em: EditableMessages = {};
+    let evaluated: boolean = false;
+    withLock(() => {
+        [em, evaluated] = getOrEvaluateEditableMessages();
+        em[cacheKey(source)] = line;
+        putEditableMessagesToCache(em);
+    })
+}
+
+function invalidateEditableMeessagesCache() {
+    const cache = CacheService.getDocumentCache();
+    cache.remove("editableMessages");
+}
 
 function getMe() {
     var url = `${telegramUrl()}/getMe`;
@@ -127,19 +223,19 @@ class Citation {
         this.comment = values[2];
         this.likes = JSON.parse(values[3] || "{}");
     }
-    
+
     likesCount() {
         return Object.keys(this.likes).length;
     }
-    
+
     getText() {
         return `${this.what} (c) ${this.who}`;
     }
-    
+
     getBtnData() {
-        return {text: `${this.likesCount()} ❤`, callback_data: this.n.toString()}; 
+        return {text: `${this.likesCount()} ❤`, callback_data: this.n.toString()};
     }
-    
+
     send(id) {
         sendText(id, this.getText(), this.getBtnData());
     }
@@ -270,16 +366,40 @@ function success(id: number) {
     } else sendText(id, ok, null);
 }
 
-function tryManual(text, id) {
+function parseCite(text: string): [string, string] {
+    return text.replace("/cite", "").replace("(с)", "(c)").trim().split("(c)").map(it => it.trim());
+}
+
+function newCitation(name: string, ctext: string, src: CitationSource) {
+    withLock(() => {
+        getCitationSheet().appendRow([
+            name.trim(),
+            ctext.trim(),
+            `by ${SIG}`,
+            "{}",
+            null,
+            JSON.stringify(src)
+        ]);
+        updateEditableMessagesCache(src, getCitationSheet().getLastRow());
+    });
+
+}
+
+function tryManual(text: string, id: number, messageId: number, chatId: number) {
     if (text.trim().indexOf("/cite") == 0) {
-        const tryout = text.replace("/cite", "").replace("(с)", "(c)").trim().split("(c)");
+        const tryout = parseCite(text);
         if (tryout.length != 2) {
             sendText(id, "Попробуй так: /cite Сообщение (c) Вася", null);
             return;
         }
         const [ctext, name] = tryout;
         success(id);
-        getCitationSheet().appendRow([name.trim(), ctext.trim(), `by ${SIG}`, "{}"]);
+
+        newCitation(name, ctext, {
+            messageId,
+            chatId,
+            type: "manual"
+        });
     }
 }
 
@@ -353,14 +473,23 @@ function handleMessage(message: Message) {
         return;
     }
 
+    if (text.trim().indexOf('/debug_get_em') === 0) { // TODO delete me
+        sendText(id, JSON.stringify(getEditableMessages()), null);
+    }
+
     if (message.chat.type === "private") {
         if (!message.forward_from && !message.forward_sender_name) {
-            tryManual(text, id);
+            tryManual(text, id, message.message_id, message.chat.id);
             return
         }
         var name = getForwardedName(message) || "Some guy";
         success(id);
-        getCitationSheet().appendRow([name, text, `by ${SIG}`, "{}"]);
+
+        newCitation(name, text, {
+            messageId: message.message_id,
+            chatId: message.chat.id,
+            type: "forward"
+        });
     }
 
     if (text.trim() === "/cite") {
@@ -372,15 +501,42 @@ function handleMessage(message: Message) {
         var name = getForwardedName(rm) || rm.from.first_name || rm.from.username;
         var text = rm.text;
         success(id);
-        getCitationSheet().appendRow([name, text, `by ${SIG}`, "{}"]);
+
+        newCitation(name, text, {
+            messageId: message.message_id,
+            chatId: message.chat.id,
+            replyTo: {
+                messageId: message.reply_to_message.message_id,
+                chatId: message.reply_to_message.chat.id,
+            },
+            type: "reply"
+        });
     }
 
-    tryManual(text, id);
+    tryManual(text, id, message.message_id, message.chat.id);
+}
+
+function handleEditedMessage(editedMessage: Message) {
+    withLock(() => {
+        let row = getEditableMessages()[cacheKey({
+            messageId: editedMessage.message_id,
+            chatId: editedMessage.chat.id
+        })];
+
+        if (!row)
+            return;
+
+        let tryout = parseCite(editedMessage.text);
+
+        if (tryout.length != 2) {
+            return; // No way to report the error back to user
+        }
+        getCitationSheet().getRange(`A${row}:B${row}`).setValues([[tryout[1], tryout[0]]]);
+    });
+
 }
 
 function handleCallback(callback_query: tl.CallbackQuery) {
-    const scriptLock = LockService.getDocumentLock();
-
     const citationId = parseInt(callback_query.data);
     if(citationId != citationId) return;
     const cite = getById(citationId);
@@ -388,8 +544,8 @@ function handleCallback(callback_query: tl.CallbackQuery) {
 
     let likes: object;
     let like: any | undefined;
-    scriptLock.waitLock(30000);
-    try {
+
+    withLock(() => {
         const range = getCitationSheet().getRange(citationId, 4);
 
         likes = JSON.parse(range.getValue() || "{}") as object;
@@ -398,9 +554,8 @@ function handleCallback(callback_query: tl.CallbackQuery) {
         if(like) delete likes[userString];
         else likes[userString] = true;
         range.setValue(JSON.stringify(likes));
-    } finally {
-        scriptLock.releaseLock();
-    }
+    });
+
     editMessageReplyMarkup(callback_query.message.chat.id, callback_query.message.message_id, {
         text: Object.keys(likes).length + " ❤",
         callback_data: `${citationId}`
@@ -414,8 +569,24 @@ function doPost(e) {
     var data = JSON.parse(e.postData.contents) as TlUpdate;
     try {
         if (data.message) handleMessage(data.message);
-        if (data.callback_query) handleCallback(data.callback_query);    
+        if (data.edited_message) handleEditedMessage(data.edited_message);
+        if (data.callback_query) handleCallback(data.callback_query);
     } catch (e) {
         sendText(data.message.chat.id, "Что-то пошло не так:\n" + e.toString(), null);
+    }
+}
+
+interface SpreadsheetEdit {
+    value: any,
+    oldValue?: any,
+    range: gas.Spreadsheet.Range
+}
+
+function onEdit(e: SpreadsheetEdit) {
+    getDebugSheet().appendRow(["Invalidating..."]);
+    if (e.range.getSheet().getIndex() == getCitationSheet().getIndex()) { // TODO do we really want to use indices???
+        withLock(() => {
+            invalidateEditableMeessagesCache()
+        })
     }
 }
