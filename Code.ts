@@ -36,6 +36,16 @@ function cacheKey(source: CitationSourceMsg) {
 }
 
 
+function withLock(code: () => void) {
+    const scriptLock = LockService.getDocumentLock();
+    scriptLock.tryLock(30000);
+    try {
+        code()
+    } finally {
+        scriptLock.releaseLock()
+    }
+}
+
 function evaluateEditableMessages() {
     const editableMessages: EditableMessages = {};
     const last = getCitationSheet().getLastRow();
@@ -58,7 +68,6 @@ function getOrEvaluateEditableMessages(): [EditableMessages, boolean] {
     const cache = CacheService.getDocumentCache();
     let emStr = cache.get("editableMessages");
     if (emStr) {
-        getDebugSheet().appendRow([emStr, false]);
         return [JSON.parse(emStr), false];
     }
     let em = evaluateEditableMessages();
@@ -70,9 +79,14 @@ function putEditableMessagesToCache(em: EditableMessages) {
 }
 
 function getEditableMessages(): EditableMessages {
-    let [em, evaluated] = getOrEvaluateEditableMessages();
-    if (evaluated)
-        putEditableMessagesToCache(em);
+    let em: EditableMessages = {};
+    let evaluated: boolean = false;
+    withLock(() => {
+        [em, evaluated] = getOrEvaluateEditableMessages();
+        if (evaluated)
+            putEditableMessagesToCache(em);
+    });
+
     return em;
 }
 
@@ -80,11 +94,13 @@ function updateEditableMessagesCache(source: CitationSource, line: number) {
     if (source.type !== "manual")
         return;
 
-    let [em, evaluated] = getOrEvaluateEditableMessages();
-
-    em[cacheKey(source)] = line;
-
-    putEditableMessagesToCache(em);
+    let em: EditableMessages = {};
+    let evaluated: boolean = false;
+    withLock(() => {
+        [em, evaluated] = getOrEvaluateEditableMessages();
+        em[cacheKey(source)] = line;
+        putEditableMessagesToCache(em);
+    })
 }
 
 function invalidateEditableMeessagesCache() {
@@ -338,6 +354,21 @@ function parseCite(text: string): [string, string] {
     return text.replace("/cite", "").replace("(с)", "(c)").trim().split("(c)")
 }
 
+function newCitation(name: string, ctext: string, src: CitationSource) {
+    withLock(() => {
+        getCitationSheet().appendRow([
+            name.trim(),
+            ctext.trim(),
+            `by ${SIG}`,
+            "{}",
+            null,
+            JSON.stringify(src)
+        ]);
+        updateEditableMessagesCache(src, getCitationSheet().getLastRow());
+    });
+
+}
+
 function tryManual(text: string, id: number, messageId: number, chatId: number) {
     if (text.trim().indexOf("/cite") == 0) {
         const tryout = parseCite(text);
@@ -348,21 +379,11 @@ function tryManual(text: string, id: number, messageId: number, chatId: number) 
         const [ctext, name] = tryout;
         success(id);
 
-        const src: CitationSource = {
+        newCitation(name, ctext, {
             messageId,
             chatId,
             type: "manual"
-        };
-
-        getCitationSheet().appendRow([
-            name.trim(),
-            ctext.trim(),
-            `by ${SIG}`,
-            "{}",
-            null,
-            JSON.stringify(src)
-        ]);
-        updateEditableMessagesCache(src, getCitationSheet().getLastRow());
+        });
     }
 }
 
@@ -447,14 +468,11 @@ function handleMessage(message: Message) {
         var name = getForwardedName(message);
         success(id);
 
-        const src: CitationSource = {
+        newCitation(name, text, {
             messageId: message.message_id,
             chatId: message.chat.id,
             type: "forward"
-        };
-
-        getCitationSheet().appendRow([name, text, `by ${SIG}`, "{}", null, JSON.stringify(src)]);
-        updateEditableMessagesCache(src, getCitationSheet().getLastRow());
+        });
     }
 
     if (text.trim() === "/cite") {
@@ -467,7 +485,7 @@ function handleMessage(message: Message) {
         var text = rm.text;
         success(id);
 
-        const src: CitationSource = {
+        newCitation(name, text, {
             messageId: message.message_id,
             chatId: message.chat.id,
             replyTo: {
@@ -475,10 +493,7 @@ function handleMessage(message: Message) {
                 chatId: message.reply_to_message.chat.id,
             },
             type: "reply"
-        };
-
-        getCitationSheet().appendRow([name, text, `by ${SIG}`, "{}", null, JSON.stringify(src)]);
-        updateEditableMessagesCache(src, getCitationSheet().getLastRow());
+        });
     }
 
     tryManual(text, id, message.message_id, message.chat.id);
@@ -498,13 +513,13 @@ function handleEditedMessage(editedMessage: Message) {
     if (tryout.length != 2) {
         return; // No way to report the error back to user
     }
+    withLock(() => {
+        getCitationSheet().getRange(`A${row}:B${row}`).setValues([tryout]);
+    });
 
-    getCitationSheet().getRange(`A${row}:B${row}`).setValues([tryout]);
 }
 
 function handleCallback(callback_query: tl.CallbackQuery) {
-    const scriptLock = LockService.getDocumentLock();
-
     const citationId = parseInt(callback_query.data);
     if(citationId != citationId) return;
     const cite = getById(citationId);
@@ -512,8 +527,8 @@ function handleCallback(callback_query: tl.CallbackQuery) {
 
     let likes: object;
     let like: any | undefined;
-    scriptLock.waitLock(30000);
-    try {
+
+    withLock(() => {
         const range = getCitationSheet().getRange(citationId, 4);
 
         likes = JSON.parse(range.getValue() || "{}") as object;
@@ -522,9 +537,8 @@ function handleCallback(callback_query: tl.CallbackQuery) {
         if(like) delete likes[userString];
         else likes[userString] = true;
         range.setValue(JSON.stringify(likes));
-    } finally {
-        scriptLock.releaseLock();
-    }
+    });
+
     editMessageReplyMarkup(callback_query.message.chat.id, callback_query.message.message_id, {
         text: Object.keys(likes).length + " ❤",
         callback_data: `${citationId}`
