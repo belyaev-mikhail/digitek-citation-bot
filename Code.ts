@@ -162,6 +162,9 @@ function plainTextToRichText(text: string): gas.Spreadsheet.RichTextValue {
 }
 
 function messageToRichText(message: tl.Message): gas.Spreadsheet.RichTextValue {
+    // TODO Tg docs says that future fersion of API will support nesting entities.
+    // TODO the approach here does not support them
+    // TODO underline and strikethrough are not supported by API yet
     const builder = SpreadsheetApp.newRichTextValue().setText(message.text);
 
     for (let entity of message.entities || []) {
@@ -183,10 +186,32 @@ function messageToRichText(message: tl.Message): gas.Spreadsheet.RichTextValue {
     return builder.build()
 }
 
-function sendText(id, text: string, likeButton: InlineKeyboardButton) {
+function plainTextToMarkdown(text: string): string {
+    return mdEscape(text)
+}
+
+function richTextToMarkdown(richText: gas.Spreadsheet.RichTextValue): string {
+    let builder = "";
+    for (let run of richText.getRuns()) {
+        let escaped = mdEscape(run.getText());
+        let style = run.getTextStyle();
+        if (style.getFontFamily() == MONO_FONT_FAMILY) {
+            builder += `\`${escaped}\``
+        } else if (style.isBold()) {
+            builder += `*${escaped}*`
+        } else if (style.isItalic()) {
+            builder += `_${escaped}_`
+        } else {
+            builder += `${escaped}`
+        }
+    }
+    return builder
+}
+
+function sendText(id, text: string, likeButton: InlineKeyboardButton, parse_mode: tl.ParseMode|null = null) {
     if(text.length > 4096) {
         for(const chunk of text.match(/[^]{1,4096}/g)) {
-            sendText(id, chunk, chunk.length < 4096 ? likeButton : null)
+            sendText(id, chunk, chunk.length < 4096 ? likeButton : null, parse_mode)
         }
         return
     }
@@ -197,6 +222,11 @@ function sendText(id, text: string, likeButton: InlineKeyboardButton) {
                 inline_keyboard: [[ likeButton ]]
             }
     };
+
+    if (parse_mode) {
+        payload.parse_mode = parse_mode
+    }
+
     var response = UrlFetchApp.fetch(`${telegramUrl()}/sendMessage`, {
         method: 'post',
         payload: serialize(payload)
@@ -255,14 +285,16 @@ class Citation {
     n: number;
     who: string;
     what: string;
+    plainWhat: string;
     comment: string;
     likes: object;
-    constructor(n: number, values) {
+    constructor(n: number, values: Array<gas.Spreadsheet.RichTextValue>) {
         this.n = n;
-        this.who = values[0];
-        this.what = values[1];
-        this.comment = values[2];
-        this.likes = JSON.parse(values[3] || "{}");
+        this.who = values[0].getText();
+        this.what = richTextToMarkdown(values[1]);
+        this.plainWhat = values[1].getText();
+        this.comment = values[2].getText();
+        this.likes = JSON.parse(values[3].getText() || "{}");
     }
 
     likesCount() {
@@ -278,7 +310,7 @@ class Citation {
     }
 
     send(id) {
-        sendText(id, this.getText(), this.getBtnData());
+        sendText(id, this.getText(), this.getBtnData(), "Markdown");
     }
 }
 
@@ -286,33 +318,33 @@ function getRandom(): Citation {
     var max = getCitationSheet().getLastRow() - 1;
     var random = Math.floor(Math.random() * max) + 2;
     var range = getCitationSheet().getRange(random, 1, 1, 4);
-    return new Citation(random, range.getValues()[0]);
+    return new Citation(random, range.getRichTextValues()[0]);
 }
 
 function getLast(): Citation {
     var last = getCitationSheet().getLastRow();
     var range = getCitationSheet().getRange(last, 1, 1, 4);
-    return new Citation(last, range.getValues()[0]);
+    return new Citation(last, range.getRichTextValues()[0]);
 }
 
 function getById(id: number): Citation | null {
     var max = getCitationSheet().getLastRow();
     if(id <= 1 || id > max) return null;
     var range = getCitationSheet().getRange(id, 1, 1, 4);
-    return new Citation(id, range.getValues()[0]);
+    return new Citation(id, range.getRichTextValues()[0]);
 }
 
 function getTop(): Citation | null {
     const last = getCitationSheet().getLastRow();
-    const vals = getCitationSheet().getRange(`A2:D${last}`).getValues().map((it, ix) => new Citation(ix+2, it));
+    const vals = getCitationSheet().getRange(`A2:D${last}`).getRichTextValues().map((it, ix) => new Citation(ix+2, it));
     return vals.sort((citation1, citation2) => citation2.likesCount() - citation1.likesCount())[0];
 }
 
 function searchCitations(text: string): string[] {
     const last = getCitationSheet().getLastRow();
-    return [...getCitationSheet().getRange(`A2:B${last}`).getValues()
+    return [...getCitationSheet().getRange(`A2:D${last}`).getRichTextValues()
         .map((it, ix) => new Citation(ix+2, it))
-        .filter(citation => citation.what.toLowerCase().indexOf(text.toLowerCase()) !== -1)
+        .filter(citation => citation.plainWhat.toLowerCase().indexOf(text.toLowerCase()) !== -1)
         .map((citation) => `Цитата #${citation.n}:\n${citation.getText()}`)];
 }
 
@@ -512,7 +544,7 @@ function handleMessage(message: Message) {
             sendText(id, "Нет таких цитат", null);
             return;
         }
-        sendText(id, citations.join("\n\n"), null);
+        sendText(id, citations.join("\n\n"), null, "Markdown");
         return;
     }
 
