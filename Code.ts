@@ -1,3 +1,4 @@
+import gas = GoogleAppsScript;
 import * as tl from "node-telegram-bot-api";
 import {InlineKeyboardButton} from "node-telegram-bot-api";
 
@@ -366,7 +367,7 @@ function success(id: number) {
 }
 
 function parseCite(text: string): [string, string] {
-    return text.replace("/cite", "").replace("(с)", "(c)").trim().split("(c)")
+    return text.replace("/cite", "").replace("(с)", "(c)").trim().split("(c)").map(it => it.trim());
 }
 
 function newCitation(name: string, ctext: string, src: CitationSource) {
@@ -516,21 +517,21 @@ function handleMessage(message: Message) {
 }
 
 function handleEditedMessage(editedMessage: Message) {
-    let row = getEditableMessages()[cacheKey({
-        messageId: editedMessage.message_id,
-        chatId: editedMessage.chat.id
-    })];
-
-    if (!row)
-        return;
-
-    let tryout = parseCite(editedMessage.text);
-
-    if (tryout.length != 2) {
-        return; // No way to report the error back to user
-    }
     withLock(() => {
-        getCitationSheet().getRange(`A${row}:B${row}`).setValues([tryout]);
+        let row = getEditableMessages()[cacheKey({
+            messageId: editedMessage.message_id,
+            chatId: editedMessage.chat.id
+        })];
+
+        if (!row)
+            return;
+
+        let tryout = parseCite(editedMessage.text);
+
+        if (tryout.length != 2) {
+            return; // No way to report the error back to user
+        }
+        getCitationSheet().getRange(`A${row}:B${row}`).setValues([[tryout[1], tryout[0]]]);
     });
 
 }
@@ -572,5 +573,20 @@ function doPost(e) {
         if (data.callback_query) handleCallback(data.callback_query);
     } catch (e) {
         sendText(data.message.chat.id, "Что-то пошло не так:\n" + e.toString(), null);
+    }
+}
+
+interface SpreadsheetEdit {
+    value: any,
+    oldValue?: any,
+    range: gas.Spreadsheet.Range
+}
+
+function onEdit(e: SpreadsheetEdit) {
+    getDebugSheet().appendRow(["Invalidating..."]);
+    if (e.range.getSheet().getIndex() == getCitationSheet().getIndex()) { // TODO do we really want to use indices???
+        withLock(() => {
+            invalidateEditableMeessagesCache()
+        })
     }
 }
