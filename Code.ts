@@ -205,58 +205,73 @@ function UUID() {
 }
 
 function doGet(e) {
-    const [who, what] = getRandom();
-    return HtmlService.createHtmlOutput(`${what} (c) ${who}`);
+    const citation = getRandom();
+    return HtmlService.createHtmlOutput(citation.getText());
 }
 
-function getRandom(): [string, string, string, InlineKeyboardButton] {
+class Citation {
+    n: number;
+    who: string;
+    what: string;
+    comment: string;
+    likes: object;
+    constructor(n: number, values) {
+        this.n = n;
+        this.who = values[0];
+        this.what = values[1];
+        this.comment = values[2];
+        this.likes = JSON.parse(values[3] || "{}");
+    }
+
+    likesCount() {
+        return Object.keys(this.likes).length;
+    }
+
+    getText() {
+        return `${this.what} (c) ${this.who}`;
+    }
+
+    getBtnData() {
+        return {text: `${this.likesCount()} ❤`, callback_data: this.n.toString()};
+    }
+
+    send(id) {
+        sendText(id, this.getText(), this.getBtnData());
+    }
+}
+
+function getRandom(): Citation {
     var max = getCitationSheet().getLastRow() - 1;
     var random = Math.floor(Math.random() * max) + 2;
     var range = getCitationSheet().getRange(random, 1, 1, 4);
-    const [who, what, comment, likes] = range.getValues()[0];
-    const likesObj = JSON.parse(likes || "{}");
-
-    return [who, what, comment, { text: `${Object.keys(likesObj).length} ❤`, callback_data: `${random}` }];
+    return new Citation(random, range.getValues()[0]);
 }
 
-function getLast(): [string, string, string, InlineKeyboardButton] {
+function getLast(): Citation {
     var last = getCitationSheet().getLastRow();
     var range = getCitationSheet().getRange(last, 1, 1, 4);
-    const [who, what, comment, likes] = range.getValues()[0];
-    const likesObj = JSON.parse(likes || "{}");
-
-    return [who, what, comment, { text: `${Object.keys(likesObj).length} ❤`, callback_data: `${last}` }];
+    return new Citation(last, range.getValues()[0]);
 }
 
-function getById(id: number): [string, string, string, InlineKeyboardButton] | null {
+function getById(id: number): Citation | null {
     var max = getCitationSheet().getLastRow();
     if(id <= 1 || id > max) return null;
     var range = getCitationSheet().getRange(id, 1, 1, 4);
-    const [who, what, comment, likes] = range.getValues()[0];
-    const likesObj = JSON.parse(likes || "{}");
-
-    return [who, what, comment, { text: `${Object.keys(likesObj).length} ❤`, callback_data: `${id}` }];
+    return new Citation(id, range.getValues()[0]);
 }
 
-function getTop(): [string, string, string, InlineKeyboardButton] | null {
+function getTop(): Citation | null {
     const last = getCitationSheet().getLastRow();
-    const vals = getCitationSheet().getRange(`A2:D${last}`).getValues().map((it, ix) => [ix + 2, ...it]);
-    var max = vals.sort(
-        ([i1,,,, likes1], [i2,,,, likes2]) =>
-            (Object.keys(JSON.parse(likes2 || "{}")).length - Object.keys(JSON.parse(likes1 || "{}")).length)
-    )[0];
-
-    const [id, who, what, comment, likes] = max;
-    const likesObj = JSON.parse(likes || "{}");
-
-    return [who, what, comment, { text: `${Object.keys(likesObj).length} ❤`, callback_data: `${id}` }];
+    const vals = getCitationSheet().getRange(`A2:D${last}`).getValues().map((it, ix) => new Citation(ix+2, it));
+    return vals.sort((citation1, citation2) => citation2.likesCount() - citation1.likesCount())[0];
 }
 
 function searchCitations(text: string): string[] {
     const last = getCitationSheet().getLastRow();
-    return [...getCitationSheet().getRange(`A2:B${last}`).getValues().map((it, ix) => [ix + 2, ...it])
-        .filter(([,, what]) => what.toLowerCase().indexOf(text.toLowerCase()) !== -1)
-        .map(([id, who, what]) => `Цитата #${id}:\n${what} (c) ${who}`)];
+    return [...getCitationSheet().getRange(`A2:B${last}`).getValues()
+        .map((it, ix) => new Citation(ix+2, it))
+        .filter(citation => citation.what.toLowerCase().indexOf(text.toLowerCase()) !== -1)
+        .map((citation) => `Цитата #${citation.n}:\n${citation.getText()}`)];
 }
 
 function isAllowed(id) {
@@ -278,8 +293,8 @@ function citeOfTheDay() {
     for (row = 2; row <= sheet.getLastRow(); ++row) {
         var id = +sheet.getRange(row, 1).getValue();
         if (id < 0) {
-            const [who, what, _, btn] = getRandom();
-            sendText(id, "Цитата дня:\n" +`${what} (c) ${who}`, btn)
+            const citation = getRandom();
+            sendText(id, "Цитата дня:\n" + citation.getText(), citation.getBtnData());
         }
     }
 }
@@ -294,7 +309,7 @@ interface TlUpdateFix {
 type TlUpdate = tl.Update & TlUpdateFix;
 type Message = TlUpdate['message']
 
-function getForwardedName(m: Message) {
+function getForwardedName(m: Message): string | null {
     if(m.forward_from) {
         return m.forward_from.first_name || m.forward_from.last_name || m.forward_from.username
     }
@@ -304,7 +319,7 @@ function getForwardedName(m: Message) {
     if(m.forward_signature) {
         return m.forward_signature
     }
-    return "Some guy"
+    return null
 }
 
 function COUNT_LIKES(column: string[][]) {
@@ -412,20 +427,17 @@ function handleMessage(message: Message) {
     }
 
     if (text.trim() === '/random') {
-        const [who, what, _, cid] = getRandom();
-        sendText(id, `${what} (c) ${who}`, cid);
+        getRandom().send(id);
         return;
     }
 
     if (text.trim() === '/top') {
-        const [who, what, _, cid] = getTop();
-        sendText(id, `${what} (c) ${who}`, cid);
+        getTop().send(id);
         return;
     }
 
     if (text.trim() === '/last') {
-        const [who, what, _, cid] = getLast();
-        sendText(id, `${what} (c) ${who}`, cid);
+        getLast().send(id);
         return;
     }
 
@@ -435,18 +447,22 @@ function handleMessage(message: Message) {
             sendText(id, "Нет такой цитаты", null);
             return;
         }
-        const cite = getById(cid);
-        if (!cite) {
+        const citation = getById(cid);
+        if (!citation) {
             sendText(id, "Нет такой цитаты", null);
             return;
         }
-        const [who, what, _, btn] = cite;
-        sendText(id, `${what} (c) ${who}`, btn);
+        citation.send(id);
         return;
     }
     
     if (text.trim().indexOf('/search') === 0) {
+        const min_search = 3;
         const searchText = text.replace('/search', '').trim();
+        if(searchText.length < min_search) {
+            sendText(id, "А поконкретнее?", null);
+            return;
+        }
         const citations = searchCitations(searchText);
         if (citations.length == 0) {
             sendText(id, "Нет таких цитат", null);
@@ -465,7 +481,7 @@ function handleMessage(message: Message) {
             tryManual(text, id, message.message_id, message.chat.id);
             return
         }
-        var name = getForwardedName(message);
+        var name = getForwardedName(message) || "Some guy";
         success(id);
 
         newCitation(name, text, {
@@ -481,7 +497,7 @@ function handleMessage(message: Message) {
             return;
         }
         var rm = message.reply_to_message;
-        var name = rm.from.first_name || rm.from.username;
+        var name = getForwardedName(rm) || rm.from.first_name || rm.from.username;
         var text = rm.text;
         success(id);
 
@@ -550,7 +566,11 @@ function doPost(e) {
     getDebugSheet().appendRow([e.postData.contents]);
 
     var data = JSON.parse(e.postData.contents) as TlUpdate;
-    if (data.message) handleMessage(data.message);
-    if (data.edited_message) handleEditedMessage(data.edited_message);
-    if (data.callback_query) handleCallback(data.callback_query);
+    try {
+        if (data.message) handleMessage(data.message);
+        if (data.edited_message) handleEditedMessage(data.edited_message);
+        if (data.callback_query) handleCallback(data.callback_query);
+    } catch (e) {
+        sendText(data.message.chat.id, "Что-то пошло не так:\n" + e.toString(), null);
+    }
 }
