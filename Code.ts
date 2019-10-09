@@ -199,7 +199,7 @@ interface TlUpdateFix {
 type TlUpdate = tl.Update & TlUpdateFix;
 type Message = TlUpdate['message']
 
-function getForwardedName(m: Message) {
+function getForwardedName(m: Message): string | null {
     if(m.forward_from) {
         return m.forward_from.first_name || m.forward_from.last_name || m.forward_from.username
     }
@@ -209,7 +209,7 @@ function getForwardedName(m: Message) {
     if(m.forward_signature) {
         return m.forward_signature
     }
-    return "Some guy"
+    return null
 }
 
 function COUNT_LIKES(column: string[][]) {
@@ -347,7 +347,7 @@ function handleMessage(message: Message) {
             tryManual(text, id);
             return
         }
-        var name = getForwardedName(message);
+        var name = getForwardedName(message) || "Some guy";
         success(id);
         getCitationSheet().appendRow([name, text, `by ${SIG}`, "{}"]);
     }
@@ -358,7 +358,7 @@ function handleMessage(message: Message) {
             return;
         }
         var rm = message.reply_to_message;
-        var name = rm.from.first_name || rm.from.username;
+        var name = getForwardedName(rm) || rm.from.first_name || rm.from.username;
         var text = rm.text;
         success(id);
         getCitationSheet().appendRow([name, text, `by ${SIG}`, "{}"]);
