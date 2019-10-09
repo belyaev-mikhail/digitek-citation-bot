@@ -327,7 +327,12 @@ function handleMessage(message: Message) {
     }
     
     if (text.trim().indexOf('/search') === 0) {
+        const min_search = 3;
         const searchText = text.replace('/search', '').trim();
+        if(searchText.length < min_search) {
+            sendText(id, "А поконкретнее?", null);
+            return;
+        }
         const citations = searchCitations(searchText);
         if (citations.length == 0) {
             sendText(id, "Нет таких цитат", null);
