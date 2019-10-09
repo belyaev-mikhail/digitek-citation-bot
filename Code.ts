@@ -142,6 +142,47 @@ function serialize(payload: object) {
     return result
 }
 
+function mdEscape(text: string) {
+    // https://stackoverflow.com/questions/40626896/telegram-does-not-escape-some-markdown-characters
+    return text
+        .replace("_", "\\_")
+        .replace("*", "\\*")
+        .replace("[", "\\[")
+        .replace("`", "\\`");
+}
+
+
+const MONO_FONT_FAMILY = "Roboto Mono";
+const BOLD = SpreadsheetApp.newTextStyle().setBold(true).build();
+const ITALIC = SpreadsheetApp.newTextStyle().setItalic(true).build();
+const MONO = SpreadsheetApp.newTextStyle().setFontFamily(MONO_FONT_FAMILY).build();
+
+function plainTextToRichText(text: string): gas.Spreadsheet.RichTextValue {
+    return SpreadsheetApp.newRichTextValue().setText(text).build()
+}
+
+function messageToRichText(message: tl.Message): gas.Spreadsheet.RichTextValue {
+    const builder = SpreadsheetApp.newRichTextValue().setText(message.text);
+
+    for (let entity of message.entities || []) {
+        switch (entity.type) {
+            case "bold":
+                builder.setTextStyle(entity.offset, entity.offset + entity.length, BOLD);
+                break;
+            case "italic":
+                builder.setTextStyle(entity.offset, entity.offset + entity.length, ITALIC);
+                break;
+            case "pre":
+            case "code":
+                builder.setTextStyle(entity.offset, entity.offset + entity.length, MONO);
+                break;
+            default:
+                break;
+        }
+    }
+    return builder.build()
+}
+
 function sendText(id, text: string, likeButton: InlineKeyboardButton) {
     if(text.length > 4096) {
         for(const chunk of text.match(/[^]{1,4096}/g)) {
@@ -370,16 +411,18 @@ function parseCite(text: string): [string, string] {
     return text.replace("/cite", "").replace("(с)", "(c)").trim().split("(c)").map(it => it.trim());
 }
 
-function newCitation(name: string, ctext: string, src: CitationSource) {
+function newCitation(name: string, ctext: gas.Spreadsheet.RichTextValue, src: CitationSource) {
     withLock(() => {
         getCitationSheet().appendRow([
             name.trim(),
-            ctext.trim(),
+            ctext.getText(), // TODO trim???
             `by ${SIG}`,
             "{}",
             null,
             JSON.stringify(src)
         ]);
+        let lastRow = getCitationSheet().getLastRow();
+        getCitationSheet().getRange(`B${lastRow}`).setRichTextValue(ctext);
         updateEditableMessagesCache(src, getCitationSheet().getLastRow());
     });
 
@@ -395,7 +438,7 @@ function tryManual(text: string, id: number, messageId: number, chatId: number) 
         const [ctext, name] = tryout;
         success(id);
 
-        newCitation(name, ctext, {
+        newCitation(name, plainTextToRichText(ctext), {
             messageId,
             chatId,
             type: "manual"
@@ -485,7 +528,7 @@ function handleMessage(message: Message) {
         var name = getForwardedName(message) || "Some guy";
         success(id);
 
-        newCitation(name, text, {
+        newCitation(name, messageToRichText(message), {
             messageId: message.message_id,
             chatId: message.chat.id,
             type: "forward"
@@ -502,7 +545,7 @@ function handleMessage(message: Message) {
         var text = rm.text;
         success(id);
 
-        newCitation(name, text, {
+        newCitation(name, messageToRichText(rm), {
             messageId: message.message_id,
             chatId: message.chat.id,
             replyTo: {
