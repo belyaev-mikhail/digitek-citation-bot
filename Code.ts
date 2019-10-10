@@ -137,7 +137,7 @@ function serialize(payload: object) {
     const result = {};
     for(const key in payload) if(payload.hasOwnProperty(key)) {
         const value = payload[key];
-        if(value != null && value['getBlob']) result[key] = value;
+        if(value != null && value.getBlob) result[key] = value.getBlob();
         else if(value != null && typeof value === 'object') result[key] = JSON.stringify(value);
         else result[key] = value;
     }
@@ -241,7 +241,7 @@ function sendPhoto(id, file: BlobSource) {
         method: 'post',
         payload: serialize({
             chat_id: `${id}`,
-            photo: file.getBlob()
+            photo: file
         })
     });
     getDebugSheet().appendRow([JSON.stringify(req)]);
@@ -249,7 +249,7 @@ function sendPhoto(id, file: BlobSource) {
         method: 'post',
         payload: serialize({
             chat_id: `${id}`,
-            photo: file.getBlob()
+            photo: file
         })
     });
     Logger.log(response.getContentText());
