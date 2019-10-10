@@ -208,7 +208,7 @@ function richTextToMarkdown(richText: gas.Spreadsheet.RichTextValue): string {
     return builder
 }
 
-function sendText(id, text: string, likeButton: InlineKeyboardButton, parse_mode: tl.ParseMode|null = null) {
+function sendText(id, text: string, likeButton: InlineKeyboardButton, parse_mode: tl.ParseMode | null = null) {
     if(text.length > 4096) {
         for(const chunk of text.match(/[^]{1,4096}/g)) {
             sendText(id, chunk, chunk.length < 4096 ? likeButton : null, parse_mode)
@@ -444,7 +444,7 @@ interface ParsedCite {
     what: string
 }
 
-function parseCite(text: string): ParsedCite|null {
+function parseCite(text: string): ParsedCite | null {
     const chunks = text.replace("/cite", "").replace("(с)", "(c)").trim().split("(c)").map(it => it.trim());
 
     if (chunks.length != 2)
