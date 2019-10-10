@@ -241,7 +241,7 @@ function sendPhoto(id, file: BlobSource) {
         method: 'post',
         payload: serialize({
             chat_id: `${id}`,
-            photo: file
+            photo: file.getBlob()
         })
     });
     getDebugSheet().appendRow([JSON.stringify(req)]);
@@ -249,7 +249,7 @@ function sendPhoto(id, file: BlobSource) {
         method: 'post',
         payload: serialize({
             chat_id: `${id}`,
-            photo: file
+            photo: file.getBlob()
         })
     });
     Logger.log(response.getContentText());
