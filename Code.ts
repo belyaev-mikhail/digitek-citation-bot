@@ -544,7 +544,7 @@ function handleMessage(message: Message) {
     }
 
     if(text.trim() === '/chart') {
-        sendPhoto(id, getCitationSheet().getCharts()[0].getBlob());
+        sendPhoto(id, getCitationSheet().getCharts()[0].getAs("image/jpeg"));
         return;
     }
 
