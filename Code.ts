@@ -483,7 +483,7 @@ function tryManual(text: string, id: number, messageId: number, chatId: number) 
         const {who, what} = tryout;
         success(id);
 
-        newCitation(what, plainTextToRichText(who), {
+        newCitation(who, plainTextToRichText(what), {
             messageId,
             chatId,
             type: "manual"
