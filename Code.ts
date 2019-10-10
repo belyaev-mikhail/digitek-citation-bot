@@ -1,6 +1,7 @@
 import gas = GoogleAppsScript;
 import * as tl from "node-telegram-bot-api";
 import {InlineKeyboardButton} from "node-telegram-bot-api";
+import BlobSource = GoogleAppsScript.Base.BlobSource;
 
 declare var BOT_TOKEN;
 declare var SCRIPT_ID;
@@ -136,7 +137,8 @@ function serialize(payload: object) {
     const result = {};
     for(const key in payload) if(payload.hasOwnProperty(key)) {
         const value = payload[key];
-        if(value != null && typeof value === 'object') result[key] = JSON.stringify(value);
+        if(value['getBlob']) result[key] = value;
+        else if(value != null && typeof value === 'object') result[key] = JSON.stringify(value);
         else result[key] = value;
     }
     return result
@@ -230,6 +232,17 @@ function sendText(id, text: string, likeButton: InlineKeyboardButton, parse_mode
     var response = UrlFetchApp.fetch(`${telegramUrl()}/sendMessage`, {
         method: 'post',
         payload: serialize(payload)
+    });
+    Logger.log(response.getContentText());
+}
+
+function sendPhoto(id, file: BlobSource) {
+    var response = UrlFetchApp.fetch(`${telegramUrl()}/sendPhoto`, {
+        method: 'post',
+        payload: serialize({
+            chat_id: `${id}`,
+            photo: file
+        })
     });
     Logger.log(response.getContentText());
 }
@@ -527,6 +540,11 @@ function handleMessage(message: Message) {
 
     if (text.trim() === '/last') {
         getLast().send(id);
+        return;
+    }
+
+    if(text.trim() === '/chart') {
+        sendPhoto(id, getCitationSheet().getCharts()[0].getBlob());
         return;
     }
 
