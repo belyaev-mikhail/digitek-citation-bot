@@ -552,7 +552,7 @@ function handleMessage(message: Message) {
     }
 
     if(text.trim() === '/chart') {
-        sendPhoto(id, getCitationSheet().getCharts()[0].getAs("image/jpeg"));
+        sendPhoto(id, getCitationSheet().getCharts()[0]);
         return;
     }
 
