@@ -237,14 +237,6 @@ function sendText(id, text: string, likeButton: InlineKeyboardButton, parse_mode
 }
 
 function sendPhoto(id, file: BlobSource) {
-    const req = UrlFetchApp.getRequest(`${telegramUrl()}/sendPhoto`, {
-        method: 'post',
-        payload: serialize({
-            chat_id: `${id}`,
-            photo: file
-        })
-    });
-    getDebugSheet().appendRow([JSON.stringify(req)]);
     const response = UrlFetchApp.fetch(`${telegramUrl()}/sendPhoto`, {
         method: 'post',
         payload: serialize({
