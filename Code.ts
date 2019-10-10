@@ -439,8 +439,21 @@ function success(id: number) {
     } else sendText(id, ok, null);
 }
 
-function parseCite(text: string): [string, string] {
-    return text.replace("/cite", "").replace("(с)", "(c)").trim().split("(c)").map(it => it.trim());
+interface ParsedCite {
+    who: string
+    what: string
+}
+
+function parseCite(text: string): ParsedCite|null {
+    const chunks = text.replace("/cite", "").replace("(с)", "(c)").trim().split("(c)").map(it => it.trim());
+
+    if (chunks.length != 2)
+        return null;
+
+    return {
+        who: chunks[1],
+        what: chunks[0]
+    };
 }
 
 function newCitation(name: string, ctext: gas.Spreadsheet.RichTextValue, src: CitationSource) {
@@ -463,14 +476,14 @@ function newCitation(name: string, ctext: gas.Spreadsheet.RichTextValue, src: Ci
 function tryManual(text: string, id: number, messageId: number, chatId: number) {
     if (text.trim().indexOf("/cite") == 0) {
         const tryout = parseCite(text);
-        if (tryout.length != 2) {
+        if (null === tryout) {
             sendText(id, "Попробуй так: /cite Сообщение (c) Вася", null);
             return;
         }
-        const [ctext, name] = tryout;
+        const {who, what} = tryout;
         success(id);
 
-        newCitation(name, plainTextToRichText(ctext), {
+        newCitation(what, plainTextToRichText(who), {
             messageId,
             chatId,
             type: "manual"
@@ -603,10 +616,10 @@ function handleEditedMessage(editedMessage: Message) {
 
         let tryout = parseCite(editedMessage.text);
 
-        if (tryout.length != 2) {
+        if (null === tryout) {
             return; // No way to report the error back to user
         }
-        getCitationSheet().getRange(`A${row}:B${row}`).setValues([[tryout[1], tryout[0]]]);
+        getCitationSheet().getRange(`A${row}:B${row}`).setValues([[tryout.who, tryout.what]]);
     });
 
 }
