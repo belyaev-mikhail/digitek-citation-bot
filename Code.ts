@@ -691,11 +691,17 @@ interface SpreadsheetEdit {
     range: gas.Spreadsheet.Range
 }
 
+type TLResult<T> = {
+    ok: true
+    result: T
+} | { ok: false }
+
 function saveFile(file_id: string) {
     const url = `${telegramUrl()}/getFile?file_id=${file_id}`;
     const response = UrlFetchApp.fetch(url);
-    const fileInfo = JSON.parse(response.getContentText()) as tl.File;
-    const fileUrl = `${telegramFileUrl()}/${fileInfo.file_path}`;
+    const fileInfo = JSON.parse(response.getContentText()) as TLResult<tl.File>;
+    if(!fileInfo.ok) return;
+    const fileUrl = `${telegramFileUrl()}/${fileInfo.result.file_path}`;
     const resFile = DriveApp.createFile(UrlFetchApp.fetch(fileUrl));
     getPicSheet().appendRow([resFile.getName(), null]);
     const lastRow = getPicSheet().getLastRow();
