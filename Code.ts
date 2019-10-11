@@ -7,11 +7,13 @@ declare var BOT_TOKEN;
 declare var SCRIPT_ID;
 
 const telegramUrl = () => `https://api.telegram.org/bot${BOT_TOKEN}`;
+const telegramFileUrl = () => `https://api.telegram.org/file/bot${BOT_TOKEN}`;
 const webAppUrl = () => `https://script.google.com/macros/s/${SCRIPT_ID}/exec`;
 
-const getCitationSheet = () => SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
-const getDataSheet = () => SpreadsheetApp.getActiveSpreadsheet().getSheets()[1];
-const getDebugSheet = () => SpreadsheetApp.getActiveSpreadsheet().getSheets()[2];
+const getCitationSheet = () => SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Citations");
+const getDataSheet = () => SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Data");
+const getDebugSheet = () => SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Debug");
+const getPicSheet = () => SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Pics");
 
 const SIG = "@digitek_citation_bot";
 
@@ -674,6 +676,7 @@ function doPost(e) {
 
     var data = JSON.parse(e.postData.contents) as TlUpdate;
     try {
+        if (data.message.photo) saveFile(data.message.photo[0].file_id);
         if (data.message) handleMessage(data.message);
     } catch (e) {
         sendText(data.message.chat.id, "Что-то пошло не так:\n" + e.toString(), null);
@@ -686,6 +689,18 @@ interface SpreadsheetEdit {
     value: any,
     oldValue?: any,
     range: gas.Spreadsheet.Range
+}
+
+function saveFile(file_id: string) {
+    const url = `${telegramUrl()}/getFile?file_id=${file_id}`;
+    const response = UrlFetchApp.fetch(url);
+    const fileInfo = JSON.parse(response.getContentText()) as tl.File;
+    const fileUrl = `${telegramFileUrl()}/${fileInfo.file_path}`;
+    const resFile = DriveApp.createFile(UrlFetchApp.fetch(fileUrl));
+    getPicSheet().appendRow([resFile.getName(), null]);
+    const lastRow = getPicSheet().getLastRow();
+    const image = getPicSheet().insertImage(resFile, 2, lastRow);
+    getPicSheet().setRowHeight(lastRow, image.getHeight() + 2);
 }
 
 function onEdit(e: SpreadsheetEdit) {
