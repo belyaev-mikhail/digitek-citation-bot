@@ -2,6 +2,7 @@ import gas = GoogleAppsScript;
 import * as tl from "node-telegram-bot-api";
 import {InlineKeyboardButton} from "node-telegram-bot-api";
 import BlobSource = GoogleAppsScript.Base.BlobSource;
+import DoPost = GoogleAppsScript.Events.DoPost;
 
 declare var BOT_TOKEN;
 declare var SCRIPT_ID;
@@ -671,7 +672,7 @@ function handleCallback(callback_query: tl.CallbackQuery) {
     answerCallbackQuery(callback_query.id, like? "Разлайкано =(" : "Полайкано");
 }
 
-function doPost(e) {
+function doPost(e: DoPost) {
     getDebugSheet().appendRow([e.postData.contents]);
 
     var data = JSON.parse(e.postData.contents) as TlUpdate;
