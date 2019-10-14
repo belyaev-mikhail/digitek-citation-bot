@@ -676,7 +676,7 @@ function doPost(e) {
 
     var data = JSON.parse(e.postData.contents) as TlUpdate;
     try {
-        if (data.message && data.message.photo) saveFile(data.message.photo[0].file_id);
+        //if (data.message && data.message.photo) saveFile(data.message.photo[0].file_id);
         if (data.message) handleMessage(data.message);
     } catch (e) {
         sendText(data.message.chat.id, "Что-то пошло не так:\n" + e.toString(), null);
