@@ -702,7 +702,9 @@ function saveFile(file_id: string) {
     const fileInfo = JSON.parse(response.getContentText()) as TLResult<tl.File>;
     if(!fileInfo.ok) return;
     const fileUrl = `${telegramFileUrl()}/${fileInfo.result.file_path}`;
-    const resFile = DriveApp.createFolder("citations").createFile(UrlFetchApp.fetch(fileUrl));
+    const folders = DriveApp.getFoldersByName("citations");
+    const folder = folders.hasNext()? folders.next() : DriveApp.createFolder("citations");
+    const resFile = folder.createFile(UrlFetchApp.fetch(fileUrl));
     getPicSheet().appendRow([resFile.getName(), resFile.getId(), null]);
     const lastRow = getPicSheet().getLastRow();
     const image = getPicSheet().insertImage(resFile, 2, lastRow);
