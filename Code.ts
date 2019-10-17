@@ -586,8 +586,12 @@ function handleMessage(message: Message) {
     if (text.trim().indexOf('/pic') === 0) {
         const picId = text.replace('/pic', '').trim();
         const row = parseInt(picId);
-        const file = (row == row)? getFileByRow(row) : getFileByDrive(picId);
-        sendPhoto(id, file);
+        try {
+            const file = (row == row) ? getFileByRow(row) : getFileByDrive(picId);
+            sendPhoto(id, file);
+        } catch (ex) {
+            sendText(id, "Нет такого файла", null)
+        }
         return;
     }
 
