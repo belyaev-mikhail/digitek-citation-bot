@@ -1,8 +1,9 @@
 import gas = GoogleAppsScript;
 import * as tl from "node-telegram-bot-api";
-import {InlineKeyboardButton} from "node-telegram-bot-api";
+import {InlineKeyboardButton, PhotoSize} from "node-telegram-bot-api";
 import BlobSource = GoogleAppsScript.Base.BlobSource;
 import DoPost = GoogleAppsScript.Events.DoPost;
+import {ok} from "assert";
 
 declare var BOT_TOKEN;
 declare var SCRIPT_ID;
@@ -582,6 +583,14 @@ function handleMessage(message: Message) {
         return;
     }
 
+    if (text.trim().indexOf('/pic') === 0) {
+        const id = text.replace('/read', '').trim();
+        const row = parseInt(id);
+        const file = (row == row)? getFileByRow(row) : getFileByDrive(id);
+        sendPhoto(id, file);
+        return;
+    }
+
     if (text.trim().indexOf('/debug_get_em') === 0) { // TODO delete me
         sendText(id, JSON.stringify(getEditableMessages()), null);
     }
@@ -672,13 +681,20 @@ function handleCallback(callback_query: tl.CallbackQuery) {
     answerCallbackQuery(callback_query.id, like? "Разлайкано =(" : "Полайкано");
 }
 
+function handlePhoto(photo: PhotoSize, id: number) {
+    const [row, driveId] = saveFile(photo.file_id);
+    success(id);
+    sendText(id, `Картинка номер ${row}, id файла ${driveId}`, null);
+}
+
 function doPost(e: DoPost) {
     getDebugSheet().appendRow([e.postData.contents]);
 
     var data = JSON.parse(e.postData.contents) as TlUpdate;
     try {
-        //if (data.message && data.message.photo) saveFile(data.message.photo[0].file_id);
-        if (data.message) handleMessage(data.message);
+        if (data.message && data.message.photo && data.message.chat.type === 'private')
+            data.message.photo.forEach(photo => handlePhoto(photo, data.message.chat.id));
+        else if (data.message) handleMessage(data.message);
     } catch (e) {
         sendText(data.message.chat.id, "Что-то пошло не так:\n" + e.toString(), null);
     }
@@ -697,7 +713,7 @@ type TLResult<T> = {
     result: T
 } | { ok: false }
 
-function saveFile(file_id: string) {
+function saveFile(file_id: string): [number, string] {
     const url = `${telegramUrl()}/getFile?file_id=${file_id}`;
     const response = UrlFetchApp.fetch(url);
     const fileInfo = JSON.parse(response.getContentText()) as TLResult<tl.File>;
@@ -710,10 +726,16 @@ function saveFile(file_id: string) {
     const lastRow = getPicSheet().getLastRow();
     const image = getPicSheet().insertImage(resFile, 2, lastRow);
     getPicSheet().setRowHeight(lastRow, image.getHeight() + 2);
+    return [lastRow, resFile.getId()]
 }
 
-function getFile(fileId: string) {
-    return DriveApp.getFileById(fileId);
+function getFileByDrive(driveId: string) {
+    return DriveApp.getFileById(driveId);
+}
+
+function getFileByRow(row: number) {
+    const sheet = getPicSheet();
+    return getFileByDrive(sheet.getRange(row, 2).getValue())
 }
 
 function onEdit(e: SpreadsheetEdit) {
