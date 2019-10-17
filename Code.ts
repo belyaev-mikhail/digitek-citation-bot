@@ -584,9 +584,9 @@ function handleMessage(message: Message) {
     }
 
     if (text.trim().indexOf('/pic') === 0) {
-        const id = text.replace('/pic', '').trim();
-        const row = parseInt(id);
-        const file = (row == row)? getFileByRow(row) : getFileByDrive(id);
+        const picId = text.replace('/pic', '').trim();
+        const row = parseInt(picId);
+        const file = (row == row)? getFileByRow(row) : getFileByDrive(picId);
         sendPhoto(id, file);
         return;
     }
