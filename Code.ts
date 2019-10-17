@@ -584,7 +584,7 @@ function handleMessage(message: Message) {
     }
 
     if (text.trim().indexOf('/pic') === 0) {
-        const id = text.replace('/read', '').trim();
+        const id = text.replace('/pic', '').trim();
         const row = parseInt(id);
         const file = (row == row)? getFileByRow(row) : getFileByDrive(id);
         sendPhoto(id, file);
