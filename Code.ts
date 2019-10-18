@@ -691,13 +691,20 @@ function handlePhoto(photo: PhotoSize, id: number) {
     sendText(id, `Картинка номер ${row}, id файла ${driveId}`, null);
 }
 
+function pickPhotoSize(photos: PhotoSize[]): PhotoSize {
+    if(photos.length === 1) return photos[0];
+    photos = [...photos];
+    photos.sort((a, b) => b.height * b.width - a.height * a.width);
+    return photos.find(value => value.width * value.height < 1000000) || photos[0]
+}
+
 function doPost(e: DoPost) {
     getDebugSheet().appendRow([e.postData.contents]);
 
     var data = JSON.parse(e.postData.contents) as TlUpdate;
     try {
         if (data.message && data.message.photo && data.message.chat.type === 'private')
-            data.message.photo.forEach(photo => handlePhoto(photo, data.message.chat.id));
+            handlePhoto(pickPhotoSize(data.message.photo), data.message.chat.id);
         else if (data.message) handleMessage(data.message);
     } catch (e) {
         sendText(data.message.chat.id, "Что-то пошло не так:\n" + e.toString(), null);
@@ -729,7 +736,9 @@ function saveFile(file_id: string): [number, string] {
     getPicSheet().appendRow([resFile.getName(), resFile.getId(), null]);
     const lastRow = getPicSheet().getLastRow();
     const image = getPicSheet().insertImage(resFile, 2, lastRow);
-    getPicSheet().setRowHeight(lastRow, image.getHeight() + 2);
+    const height = Math.min(image.getHeight(), 300);
+    image.setHeight(height);
+    getPicSheet().setRowHeight(lastRow, height + 2);
     return [lastRow, resFile.getId()]
 }
 
