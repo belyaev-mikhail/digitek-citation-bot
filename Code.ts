@@ -695,7 +695,10 @@ function pickPhotoSize(photos: PhotoSize[]): PhotoSize {
     if(photos.length === 1) return photos[0];
     photos = [...photos];
     photos.sort((a, b) => b.height * b.width - a.height * a.width);
-    return photos.find(value => value.width * value.height < 1000000) || photos[0]
+    for(const photo of photos) {
+        if(photo.width * photo.height < 1000000) return photo;
+    }
+    return photos[0];
 }
 
 function doPost(e: DoPost) {
