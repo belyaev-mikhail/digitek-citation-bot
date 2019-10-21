@@ -741,6 +741,7 @@ function saveFile(file_id: string): [number, string] {
     const image = getPicSheet().insertImage(resFile, 2, lastRow);
     const height = Math.min(image.getHeight(), 300);
     image.setHeight(height);
+    image.setWidth(image.getInherentWidth() * (image.getHeight() / image.getInherentHeight()));
     getPicSheet().setRowHeight(lastRow, height + 2);
     return [lastRow, resFile.getId()]
 }
