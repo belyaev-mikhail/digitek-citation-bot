@@ -331,10 +331,13 @@ class Citation {
     }
 }
 
+const TUESDAY_IS_A_VERY_BAD_DAY = 52;
+const TUESDAY = 1;
+
 function getRandom(): Citation {
-    var max = getCitationSheet().getLastRow() - 1;
-    var random = Math.floor(Math.random() * max) + 2;
-    var range = getCitationSheet().getRange(random, 1, 1, 4);
+    let max = getCitationSheet().getLastRow() - 1;
+    let random = new Date().getDay() == TUESDAY ?  TUESDAY_IS_A_VERY_BAD_DAY : Math.floor(Math.random() * max) + 2;
+    let range = getCitationSheet().getRange(random, 1, 1, 4);
     return new Citation(random, range.getRichTextValues()[0]);
 }
 
