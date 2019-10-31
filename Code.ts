@@ -385,7 +385,7 @@ function citeOfTheDay() {
         var id = +sheet.getRange(row, 1).getValue();
         if (id < 0) {
             const citation = getRandom();
-            sendText(id, "Цитата дня:\n" + citation.getText(), citation.getBtnData());
+            sendText(id, "Цитата дня:\n" + citation.getText(), citation.getBtnData(), "Markdown");
         }
     }
 }
