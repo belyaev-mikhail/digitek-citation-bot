@@ -537,7 +537,8 @@ function handleMessage(message: Message) {
 
     if (command.trim() === '/random') {
         let n = parseInt(args[0])
-        if(n != n) n = 1
+        if(n != n || n < 0) n = 1
+        if(n > 30) n = 30
         for(let i = 0; i < n; ++i) {
             getRandom().send(id);
         }
@@ -547,7 +548,8 @@ function handleMessage(message: Message) {
 
     if (command.trim() === '/top') {
         let n = parseInt(args[0])
-        if(n != n) n = 1
+        if(n != n || n < 0) n = 1
+        if(n > 30) n = 30
         for(let i = 0; i < n; ++i) {
             const top = getTop(i)
             if(top) top.send(id)
@@ -557,7 +559,8 @@ function handleMessage(message: Message) {
 
     if (command.trim() === '/last') {
         let n = parseInt(args[0])
-        if(n != n) n = 1
+        if(n != n || n < 0) n = 1
+        if(n > 30) n = 30
         for(let i = 0; i < n; ++i) {
             const last = getLast(i)
             if(last) last.send(id)
