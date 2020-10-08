@@ -338,9 +338,10 @@ function getRandom(): Citation {
     return new Citation(random, range.getRichTextValues()[0]);
 }
 
-function getLast(): Citation {
+function getLast(offset: number): Citation | null {
     var last = getCitationSheet().getLastRow();
-    var range = getCitationSheet().getRange(last, 1, 1, 4);
+    if (offset > last) return null
+    var range = getCitationSheet().getRange(last - offset, 1, 1, 4);
     return new Citation(last, range.getRichTextValues()[0]);
 }
 
@@ -351,10 +352,10 @@ function getById(id: number): Citation | null {
     return new Citation(id, range.getRichTextValues()[0]);
 }
 
-function getTop(): Citation | null {
+function getTop(offset: number): Citation | null {
     const last = getCitationSheet().getLastRow();
     const vals = getCitationSheet().getRange(`A2:D${last}`).getRichTextValues().map((it, ix) => new Citation(ix+2, it));
-    return vals.sort((citation1, citation2) => citation2.likesCount() - citation1.likesCount())[0];
+    return vals.sort((citation1, citation2) => citation2.likesCount() - citation1.likesCount())[offset] || null;
 }
 
 function searchCitations(text: string): string[] {
@@ -532,22 +533,39 @@ function handleMessage(message: Message) {
         return;
     }
 
-    if (text.trim() === '/random') {
-        getRandom().send(id);
+    const [command, ...args] = text.split(RegExp('\\s+'))
+
+    if (command.trim() === '/random') {
+        let n = parseInt(args[0])
+        if(n != n) n = 1
+        for(let i = 0; i < n; ++i) {
+            getRandom().send(id);
+        }
+
         return;
     }
 
-    if (text.trim() === '/top') {
-        getTop().send(id);
+    if (command.trim() === '/top') {
+        let n = parseInt(args[0])
+        if(n != n) n = 1
+        for(let i = 0; i < n; ++i) {
+            const top = getTop(i)
+            if(top) top.send(id)
+        }
         return;
     }
 
-    if (text.trim() === '/last') {
-        getLast().send(id);
+    if (command.trim() === '/last') {
+        let n = parseInt(args[0])
+        if(n != n) n = 1
+        for(let i = 0; i < n; ++i) {
+            const last = getLast(i)
+            if(last) last.send(id)
+        }
         return;
     }
 
-    if(text.trim() === '/chart') {
+    if(command.trim() === '/chart') {
         sendPhoto(id, getCitationSheet().getCharts()[0]);
         return;
     }
