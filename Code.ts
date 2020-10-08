@@ -553,6 +553,7 @@ function handleMessage(message: Message) {
         for(let i = 0; i < n; ++i) {
             const top = getTop(i)
             if(top) top.send(id)
+            else break
         }
         return;
     }
@@ -564,6 +565,7 @@ function handleMessage(message: Message) {
         for(let i = 0; i < n; ++i) {
             const last = getLast(i)
             if(last) last.send(id)
+            else break
         }
         return;
     }
