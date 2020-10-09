@@ -338,11 +338,11 @@ function getRandom(): Citation {
     return new Citation(random, range.getRichTextValues()[0]);
 }
 
-function getLast(offset: number): Citation | null {
-    var last = getCitationSheet().getLastRow();
-    if (offset > last) return null
-    var range = getCitationSheet().getRange(last - offset, 1, 1, 4);
-    return new Citation(last, range.getRichTextValues()[0]);
+function getLast(n: number = 1): Citation[] {
+    const last = getCitationSheet().getLastRow();
+    n = Math.min(last, n);
+    const range = getCitationSheet().getRange(last - n + 1, 1, n, 4);
+    return range.getRichTextValues().map((it, ix) => new Citation(last - n + ix, it));
 }
 
 function getById(id: number): Citation | null {
@@ -562,10 +562,9 @@ function handleMessage(message: Message) {
         let n = parseInt(args[0])
         if(n != n || n < 0) n = 1
         if(n > 30) n = 30
-        for(let i = 0; i < n; ++i) {
-            const last = getLast(i)
-            if(last) last.send(id)
-            else break
+        const lasts = getLast(n)
+        for(const e of lasts) {
+            e.send(id)
         }
         return;
     }
