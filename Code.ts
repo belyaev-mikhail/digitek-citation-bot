@@ -353,10 +353,11 @@ function getById(id: number): Citation | null {
     return new Citation(id, range.getRichTextValues()[0]);
 }
 
-function getTop(offset: number): Citation | null {
+function getTop(n: number = 1): Citation[] {
     const last = getCitationSheet().getLastRow();
+    n = Math.min(last, n);
     const vals = getCitationSheet().getRange(`A2:D${last}`).getRichTextValues().map((it, ix) => new Citation(ix+2, it));
-    return vals.sort((citation1, citation2) => citation2.likesCount() - citation1.likesCount())[offset] || null;
+    return vals.sort((citation1, citation2) => citation2.likesCount() - citation1.likesCount()).slice(0, n);
 }
 
 function searchCitations(text: string): string[] {
@@ -551,10 +552,9 @@ function handleMessage(message: Message) {
         let n = parseInt(args[0])
         if(n != n || n < 0) n = 1
         if(n > 30) n = 30
-        for(let i = 0; i < n; ++i) {
-            const top = getTop(i)
-            if(top) top.send(id)
-            else break
+        const tops = getTop(n)
+        for(const e of tops) {
+            e.send(id)
         }
         return;
     }
