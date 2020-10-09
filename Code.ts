@@ -341,8 +341,9 @@ function getRandom(): Citation {
 function getLast(n: number = 1): Citation[] {
     const last = getCitationSheet().getLastRow();
     n = Math.min(last, n);
-    const range = getCitationSheet().getRange(last - n + 1, 1, n, 4);
-    return range.getRichTextValues().map((it, ix) => new Citation(last - n + ix, it));
+    const firstRow = last - n + 1
+    const range = getCitationSheet().getRange(firstRow, 1, n, 4);
+    return range.getRichTextValues().map((it, ix) => new Citation(firstRow + ix, it));
 }
 
 function getById(id: number): Citation | null {
