@@ -151,10 +151,10 @@ function serialize(payload: object) {
 function mdEscape(text: string) {
     // https://stackoverflow.com/questions/40626896/telegram-does-not-escape-some-markdown-characters
     return text
-        .replaceAll("_", "\\_")
-        .replaceAll("*", "\\*")
-        .replaceAll("[", "\\[")
-        .replaceAll("`", "\\`");
+        .replace(/\_/g, "\\_")
+        .replace(/\*/g, "\\*")
+        .replace(/\[/g, "\\[")
+        .replace(/\`/g, "\\`");
 }
 
 
@@ -618,7 +618,7 @@ function handleMessage(message: Message) {
         return;
     }
 
-    if (text.trim().indexOf('/debug_get_em') === 0) { // TODO delete me
+    if (text.trim().indexOf('/debug_get_em') === 0) { // TODO delete
         sendText(id, JSON.stringify(getEditableMessages()), null);
     }
 
