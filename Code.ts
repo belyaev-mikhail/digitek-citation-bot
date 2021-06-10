@@ -642,9 +642,17 @@ function handleMessage(message: Message) {
             sendText(id, "Я умею цитировать только реплаи, сорян\nМожешь зафорвардить сообщение мне в личку", null);
             return;
         }
-        var rm = message.reply_to_message;
-        var name = getForwardedName(rm) || rm.from.first_name || rm.from.username;
-        var text = rm.text;
+        const rm = message.reply_to_message;
+        const name = getForwardedName(rm) || rm.from.first_name || rm.from.username;
+        const text = rm.text;
+        if (!text) {
+            if (rm.photo) {
+                handlePhoto(pickPhotoSize(rm.photo), message.chat.id);
+            } else {
+                sendText(id, "Не", null)
+            }
+            return;
+        }
         success(id);
 
         newCitation(name, messageToRichText(rm), {
