@@ -4,6 +4,7 @@ import {InlineKeyboardButton, PhotoSize} from "node-telegram-bot-api";
 import BlobSource = GoogleAppsScript.Base.BlobSource;
 import DoPost = GoogleAppsScript.Events.DoPost;
 import {ok} from "assert";
+import Sheet = GoogleAppsScript.Spreadsheet.Sheet;
 
 declare var BOT_TOKEN;
 declare var SCRIPT_ID;
@@ -12,10 +13,21 @@ const telegramUrl = () => `https://api.telegram.org/bot${BOT_TOKEN}`;
 const telegramFileUrl = () => `https://api.telegram.org/file/bot${BOT_TOKEN}`;
 const webAppUrl = () => `https://script.google.com/macros/s/${SCRIPT_ID}/exec`;
 
-const getCitationSheet = () => SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Citations");
-const getDataSheet = () => SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Data");
-const getDebugSheet = () => SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Debug");
-const getPicSheet = () => SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Pics");
+function getOrCreateSheet(name: string): Sheet {
+    const spreadsheet = SpreadsheetApp.getActiveSpreadsheet()
+    let sheet = spreadsheet.getSheetByName(name)
+    if (sheet == null) {
+        sheet = spreadsheet.insertSheet()
+        sheet.setName(name)
+    }
+    return sheet
+}
+
+const getCitationSheet = () => getOrCreateSheet("Citations");
+const getDataSheet = () => getOrCreateSheet("Data");
+const getDebugSheet = () => getOrCreateSheet("Debug");
+const getPicSheet = () => getOrCreateSheet("Pics");
+const getBanSheet = () => getOrCreateSheet("Ban")
 
 const SIG = "@digitek_citation_bot";
 
@@ -40,7 +52,6 @@ type EditableMessages = {
 function cacheKey(source: CitationSourceMsg) {
     return `${source.chatId}###${source.messageId}`
 }
-
 
 function withLock(code: () => void) {
     const scriptLock = LockService.getDocumentLock();
@@ -112,6 +123,17 @@ function updateEditableMessagesCache(source: CitationSource, line: number) {
 function invalidateEditableMeessagesCache() {
     const cache = CacheService.getDocumentCache();
     cache.remove("editableMessages");
+}
+
+function banUser(user: string) {
+    let bansheet = getBanSheet()
+    bansheet.appendRow([user])
+}
+
+function getBanList(): Set<string> {
+    let bansheet = getBanSheet()
+    let banned = bansheet.getRange("A:A").getRichTextValues()
+    return new Set(banned.map(it => it && it[0].getText() || ""))
 }
 
 function getMe() {
@@ -512,8 +534,8 @@ function tryManual(text: string, id: number, messageId: number, chatId: number) 
 }
 
 function handleMessage(message: Message) {
-    var text = message.text;
-    var id = message.chat.id;
+    let text = message.text;
+    const id = message.chat.id;
 
     if (!text) return;
 
