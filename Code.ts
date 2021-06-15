@@ -175,6 +175,7 @@ function serialize(payload: object) {
         const value = payload[key];
         if(value != null && value.getBlob) result[key] = value.getBlob();
         else if(value != null && typeof value === 'object') result[key] = JSON.stringify(value);
+        else if(value != null && Array.isArray(value)) result[key] = JSON.stringify(value);
         else result[key] = value;
     }
     return result
@@ -355,12 +356,12 @@ function updatePoll(poll: Poll) {
 function sendBanPoll(id, user: string) {
     const response = UrlFetchApp.fetch(`${telegramUrl()}/sendPoll`, {
         method: 'post',
-        payload: {
+        payload: serialize({
             chat_id: "" + id,
             question: `Ну чё, баним ${user}?`,
             options: ["Jah", "Nein"],
             open_period: 600
-        }
+        })
     });
     let payload = JSON.parse(response.getContentText()) as Message
     withLock(() => {
