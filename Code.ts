@@ -543,6 +543,14 @@ function tryManual(text: string, id: number, messageId: number, chatId: number) 
     }
 }
 
+function checkBan(message: Message): boolean {
+    const banlist = getBanList()
+    return message.chat.id.toString() in banlist
+        || message.from.id.toString() in banlist
+        || message.from.first_name in banlist
+        || message.from.username in banlist;
+}
+
 function handleMessage(message: Message) {
     let text = message.text;
     const id = message.chat.id;
@@ -564,15 +572,6 @@ function handleMessage(message: Message) {
 
     if (!isAllowed(id)) {
         sendText(id, "Ты кто? Пришли мне данные ячейки A1 из таблицы 'Data' плез", null);
-        return;
-    }
-
-    const banlist = getBanList()
-    if (id.toString() in banlist
-        || message.from.id.toString() in banlist
-        || message.from.first_name in banlist
-        || message.from.username in banlist) {
-        sendText(id, "Ты забанен, чувак, сорян", null);
         return;
     }
 
@@ -664,6 +663,10 @@ function handleMessage(message: Message) {
     }
 
     if (message.chat.type === "private") {
+        if (checkBan(message)) {
+            sendText(id, "Ты забанен, чувак, сорян", null);
+            return;
+        }
         if (!message.forward_from && !message.forward_sender_name) {
             tryManual(text, id, message.message_id, message.chat.id);
             return
@@ -679,6 +682,10 @@ function handleMessage(message: Message) {
     }
 
     if (text.trim() === "/cite") {
+        if (checkBan(message)) {
+            sendText(id, "Ты забанен, чувак, сорян", null);
+            return;
+        }
         if (!message.reply_to_message) {
             sendText(id, "Я умею цитировать только реплаи, сорян\nМожешь зафорвардить сообщение мне в личку", null);
             return;
