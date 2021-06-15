@@ -247,6 +247,8 @@ function richTextToMarkdown(richText: gas.Spreadsheet.RichTextValue): string {
     return builder
 }
 
+type TlResponse = { ok: false } | { ok: true, result: Message }
+
 function sendText(id, text: string, likeButton: InlineKeyboardButton, parse_mode: tl.ParseMode | null = null) {
     if(text.length > 4096) {
         for(const chunk of text.match(/[^]{1,4096}/g)) {
@@ -363,9 +365,11 @@ function sendBanPoll(id, user: string) {
             open_period: 600
         })
     });
-    let payload = JSON.parse(response.getContentText()) as Message
+    let payload = JSON.parse(response.getContentText()) as TLResult<Message>
     withLock(() => {
-        setPoll(payload.poll.id, payload.poll, user)
+        if (payload.ok) {
+            setPoll(payload.result.poll.id, payload.result.poll, user)
+        }
     })
 }
 
