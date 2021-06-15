@@ -31,6 +31,8 @@ const getBanSheet = () => getOrCreateSheet("Ban")
 
 const SIG = "@digitek_citation_bot";
 
+type PoorStringSet = { [key: string]: true | undefined }
+
 type CitationSourceMsg = {
     messageId: number,
     chatId: number
@@ -130,10 +132,18 @@ function banUser(user: string) {
     bansheet.appendRow([user])
 }
 
-function getBanList(): Set<string> {
+function getBanList(): PoorStringSet {
     let bansheet = getBanSheet()
     let banned = bansheet.getRange("A:A").getRichTextValues()
-    return new Set(banned.map(it => it && it[0].getText() || ""))
+    let result: PoorStringSet = {}
+    for (const b of banned.map(it => it && it[0].getText() || "")) {
+        result[b] = true
+    }
+    return result
+}
+
+function clearBanList() {
+    getBanSheet().clear()
 }
 
 function getMe() {
@@ -554,6 +564,15 @@ function handleMessage(message: Message) {
 
     if (!isAllowed(id)) {
         sendText(id, "Ты кто? Пришли мне данные ячейки A1 из таблицы 'Data' плез", null);
+        return;
+    }
+
+    const banlist = getBanList()
+    if (id.toString() in banlist
+        || message.from.id.toString() in banlist
+        || message.from.first_name in banlist
+        || message.from.username in banlist) {
+        sendText(id, "Ты забанен, чувак, сорян", null);
         return;
     }
 
