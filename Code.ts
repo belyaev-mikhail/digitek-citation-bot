@@ -596,7 +596,7 @@ function checkBan(message: Message): boolean {
     return message.chat.id.toString() in banlist
         || message.from.id.toString() in banlist
         || message.from.first_name in banlist
-        || message.from.username in banlist;
+        || ("@" + message.from.username) in banlist;
 }
 
 function handleMessage(message: Message) {
