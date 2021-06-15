@@ -1,6 +1,6 @@
 import gas = GoogleAppsScript;
 import * as tl from "node-telegram-bot-api";
-import {InlineKeyboardButton, PhotoSize} from "node-telegram-bot-api";
+import {InlineKeyboardButton, PhotoSize, Poll, PollOption} from "node-telegram-bot-api";
 import BlobSource = GoogleAppsScript.Base.BlobSource;
 import DoPost = GoogleAppsScript.Events.DoPost;
 import {ok} from "assert";
@@ -321,6 +321,51 @@ function sendSticker(id, file_id) {
     Logger.log(response.getContentText());
 }
 
+type CachedPoll = Poll & { data: any }
+
+function getPoll(id): CachedPoll | null {
+    let cache = CacheService.getDocumentCache().get("Polls")
+    if (!cache) return null
+    let row = JSON.parse(cache)[id]
+    if (!row) return null
+    return row as CachedPoll
+}
+
+function setPoll(id, poll: Poll, data?: any): CachedPoll {
+    let cache = CacheService.getDocumentCache().get("Polls")
+    if (!cache) cache = "{}"
+    let parsedCache = JSON.parse(cache)
+    let existingPoll = parsedCache[id] as CachedPoll
+    existingPoll = { ...poll, data: data || existingPoll.data }
+    parsedCache[id] = existingPoll
+    CacheService.getDocumentCache().put("Polls", JSON.stringify(parsedCache), 1200)
+    return existingPoll
+}
+
+function updatePoll(poll: Poll) {
+    withLock(() => {
+        const cached = setPoll(poll.id, poll)
+        if (cached.is_closed) {
+            banUser("" + cached.data)
+        }
+    })
+}
+
+function sendBanPoll(id, user: string) {
+    const response = UrlFetchApp.fetch(`${telegramUrl()}/sendPoll`, {
+        method: 'post',
+        payload: {
+            chat_id: "" + id,
+            question: `Ну чё, баним ${user}?`,
+            options: ["Jah", "Nein"],
+        }
+    });
+    let payload = JSON.parse(response.getContentText()) as Message
+    withLock(() => {
+        setPoll(payload.poll.id, payload.poll, user)
+    })
+}
+
 function UUID() {
     return Utilities.getUuid()
 }
@@ -427,6 +472,7 @@ function citeOfTheDay() {
 
 // this is somehow not in telegram's type definitions
 interface TlUpdateFix {
+    poll ?: Poll
     message ?: {
         forward_sender_name?: string
     }
@@ -607,6 +653,11 @@ function handleMessage(message: Message) {
         for(const e of lasts) {
             e.send(id)
         }
+        return;
+    }
+
+    if (command.trim() === '/ban') {
+        sendBanPoll(id, args.join(" "))
         return;
     }
 
@@ -792,6 +843,7 @@ function doPost(e: DoPost) {
         sendText(data.message.chat.id, "Что-то пошло не так:\n" + e.toString(), null);
     }
     if (data.edited_message) handleEditedMessage(data.edited_message);
+    if (data.poll)
     if (data.callback_query) handleCallback(data.callback_query);
 }
 
