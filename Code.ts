@@ -346,7 +346,8 @@ function updatePoll(poll: Poll) {
     withLock(() => {
         const cached = setPoll(poll.id, poll)
         if (cached.is_closed) {
-            banUser("" + cached.data)
+            if (cached.options[0].voter_count > cached.options[1].voter_count)
+                banUser("" + cached.data)
         }
     })
 }
@@ -358,6 +359,7 @@ function sendBanPoll(id, user: string) {
             chat_id: "" + id,
             question: `Ну чё, баним ${user}?`,
             options: ["Jah", "Nein"],
+            open_period: 600
         }
     });
     let payload = JSON.parse(response.getContentText()) as Message
