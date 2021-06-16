@@ -700,7 +700,7 @@ function handleMessage(message: Message) {
             return;
         }
         const username = args.join(" ").trim()
-        if (!username) {
+        if (!username || username.startsWith("=")) {
             sendText(id, "Мамку свою забань, тестировщик хуев", null)
             return;
         }
