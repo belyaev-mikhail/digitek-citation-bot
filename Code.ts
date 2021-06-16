@@ -887,7 +887,7 @@ function doPost(e: DoPost) {
         sendText(data.message.chat.id, "Что-то пошло не так:\n" + e.toString(), null);
     }
     if (data.edited_message) handleEditedMessage(data.edited_message);
-    if (data.poll)
+    if (data.poll) updatePoll(data.poll)
     if (data.callback_query) handleCallback(data.callback_query);
 }
 
