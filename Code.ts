@@ -152,8 +152,7 @@ function clearBanList() {
 }
 
 function rotateDebugSheet() {
-    const rows = getDebugSheet().getLastRow()
-    while (rows > 3000) getDebugSheet().deleteRows(1, 2000)
+    while (getDebugSheet().getLastRow() > 3000) getDebugSheet().deleteRows(1, 2000)
 }
 
 function getMe() {
