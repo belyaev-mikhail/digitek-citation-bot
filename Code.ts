@@ -355,19 +355,24 @@ function updatePoll(poll: Poll) {
 }
 
 function handlePollTrigger(e: gas.Events.AppsScriptEvent) {
-    withLock(() => {
-        for (const t of ScriptApp.getProjectTriggers()) {
-            if (t.getUniqueId() == e.triggerUid) {
-                ScriptApp.deleteTrigger(t)
-                break
+    try {
+        withLock(() => {
+            for (const t of ScriptApp.getProjectTriggers()) {
+                if (t.getUniqueId() == e.triggerUid) {
+                    ScriptApp.deleteTrigger(t)
+                    break
+                }
             }
-        }
-        let pollId = PropertiesService.getScriptProperties().getProperty(e.triggerUid)
-        PropertiesService.getScriptProperties().deleteProperty(e.triggerUid)
-        let poll = getPoll(pollId)
-        if (poll.options[0].voter_count > poll.options[1].voter_count)
-            banUser("" + poll.data)
-    })
+            let pollId = PropertiesService.getScriptProperties().getProperty(e.triggerUid)
+            PropertiesService.getScriptProperties().deleteProperty(e.triggerUid)
+            let poll = getPoll(pollId)
+            debug(poll)
+            if (poll.options[0].voter_count > poll.options[1].voter_count)
+                banUser("" + poll.data)
+        })
+    } catch (ex) {
+        debug(ex)
+    }
 }
 
 function sendBanPoll(id, user: string) {
@@ -691,6 +696,10 @@ function handleMessage(message: Message) {
             return;
         }
         const username = args.join(" ").trim()
+        if (!username) {
+            sendText(id, "Мамку свою забань, тестировщик хуев", null)
+            return;
+        }
         debug(`Trying to ban ${username}`)
         sendBanPoll(id, username)
         return;
