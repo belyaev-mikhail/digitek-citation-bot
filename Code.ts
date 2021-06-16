@@ -134,7 +134,7 @@ function invalidateEditableMeessagesCache() {
 
 function banUser(user: string) {
     let bansheet = getBanSheet()
-    bansheet.appendRow([user])
+    bansheet.appendRow([`'${user}`])
 }
 
 function getBanList(): PoorStringSet {
