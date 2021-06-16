@@ -151,6 +151,11 @@ function clearBanList() {
     getBanSheet().clear()
 }
 
+function rotateDebugSheet() {
+    const rows = getDebugSheet().getLastRow()
+    while (rows > 3000) getDebugSheet().deleteRows(1, 2000)
+}
+
 function getMe() {
     var url = `${telegramUrl()}/getMe`;
     var response = UrlFetchApp.fetch(url);
