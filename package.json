@@ -12,6 +12,6 @@
     "@types/node-telegram-bot-api": "^0.51.1"
   },
   "dependencies": {
-    "@google/clasp": "^2.3.0"
+    "@google/clasp": "^2.3.2"
   }
 }
