@@ -5,6 +5,7 @@ import BlobSource = GoogleAppsScript.Base.BlobSource;
 import DoPost = GoogleAppsScript.Events.DoPost;
 import {ok} from "assert";
 import Sheet = GoogleAppsScript.Spreadsheet.Sheet;
+import TriggerSource = GoogleAppsScript.Script.TriggerSource;
 
 declare var BOT_TOKEN;
 declare var SCRIPT_ID;
@@ -49,6 +50,10 @@ type CitationSource = CitationSourceMsg & ({
 
 type EditableMessages = {
     [key: string]: number
+}
+
+function debug(value: any) {
+    getDebugSheet().appendRow([(typeof value === 'string'? value: JSON.stringify(value))])
 }
 
 function cacheKey(source: CitationSourceMsg) {
@@ -346,12 +351,22 @@ function setPoll(id, poll: Poll, data?: any): CachedPoll {
 }
 
 function updatePoll(poll: Poll) {
+    withLock(() => setPoll(poll.id, poll))
+}
+
+function handlePollTrigger(e: gas.Events.AppsScriptEvent) {
     withLock(() => {
-        const cached = setPoll(poll.id, poll)
-        if (cached.is_closed) {
-            if (cached.options[0].voter_count > cached.options[1].voter_count)
-                banUser("" + cached.data)
+        for (const t of ScriptApp.getProjectTriggers()) {
+            if (t.getUniqueId() == e.triggerUid) {
+                ScriptApp.deleteTrigger(t)
+                break
+            }
         }
+        let pollId = PropertiesService.getScriptProperties().getProperty(e.triggerUid)
+        PropertiesService.getScriptProperties().deleteProperty(e.triggerUid)
+        let poll = getPoll(pollId)
+        if (poll.options[0].voter_count > poll.options[1].voter_count)
+            banUser("" + poll.data)
     })
 }
 
@@ -362,13 +377,19 @@ function sendBanPoll(id, user: string) {
             chat_id: "" + id,
             question: `Ну чё, баним ${user}?`,
             options: ["Jah", "Nein"],
-            open_period: 600
+            open_period: 300
         })
     });
+
     let payload = JSON.parse(response.getContentText()) as TLResult<Message>
     withLock(() => {
         if (payload.ok) {
             setPoll(payload.result.poll.id, payload.result.poll, user)
+            let triggerId =
+                ScriptApp
+                    .newTrigger(handlePollTrigger.name).timeBased().after(330000)
+                    .create().getUniqueId()
+            PropertiesService.getScriptProperties().setProperty(triggerId, payload.result.poll.id)
         }
     })
 }
@@ -665,7 +686,13 @@ function handleMessage(message: Message) {
     }
 
     if (command.trim() === '/ban') {
-        sendBanPoll(id, args.join(" "))
+        if (checkBan(message)) {
+            sendText(id, "Ты забанен, чувак, сорян", null);
+            return;
+        }
+        const username = args.join(" ").trim()
+        debug(`Trying to ban ${username}`)
+        sendBanPoll(id, username)
         return;
     }
 
@@ -840,7 +867,7 @@ function pickPhotoSize(photos: PhotoSize[]): PhotoSize {
 }
 
 function doPost(e: DoPost) {
-    getDebugSheet().appendRow([e.postData.contents]);
+    debug(e.postData.contents);
 
     var data = JSON.parse(e.postData.contents) as TlUpdate;
     try {
@@ -895,7 +922,7 @@ function getFileByRow(row: number) {
 }
 
 function onEdit(e: SpreadsheetEdit) {
-    getDebugSheet().appendRow(["Invalidating..."]);
+    debug("Invalidating...");
     if (e.range.getSheet().getIndex() == getCitationSheet().getIndex()) { // TODO do we really want to use indices???
         withLock(() => {
             invalidateEditableMeessagesCache()
