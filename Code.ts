@@ -628,11 +628,11 @@ function tryManual(text: string, id: number, messageId: number, chatId: number) 
 
 function checkBan(message: Message): boolean {
     const banlist = getBanList()
-    return message.chat.id.toString() in banlist
-        || message.from.id.toString() in banlist
-        || message.from.first_name in banlist
-        || message.from.username in banlist
-        || ("@" + message.from.username) in banlist;
+    return message?.chat?.id?.toString() in banlist
+        || message?.from?.id.toString() in banlist
+        || message?.from?.first_name in banlist
+        || message?.from?.username in banlist
+        || ("@" + message?.from?.username) in banlist;
 }
 
 function handleMessage(message: Message) {
