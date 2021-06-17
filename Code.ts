@@ -626,7 +626,10 @@ function tryManual(text: string, id: number, messageId: number, chatId: number) 
     }
 }
 
-function checkBan(message: Message): boolean {
+type Paranoid<Obj> =
+    Obj extends {}? { [K in keyof Obj]?: Paranoid<Obj[K]> } : Obj
+
+function checkBan(message: Paranoid<Message>): boolean {
     const banlist = getBanList()
     return message?.chat?.id?.toString() in banlist
         || message?.from?.id.toString() in banlist
