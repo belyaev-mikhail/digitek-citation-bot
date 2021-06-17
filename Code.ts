@@ -631,11 +631,13 @@ type Paranoid<Obj> =
 
 function checkBan(message: Paranoid<Message>): boolean {
     const banlist = getBanList()
-    return message?.chat?.id?.toString() in banlist
-        || message?.from?.id.toString() in banlist
-        || message?.from?.first_name in banlist
-        || message?.from?.username in banlist
-        || ("@" + message?.from?.username) in banlist;
+    try {
+        return message?.chat?.id?.toString() in banlist
+            || message?.from?.id.toString() in banlist
+            || message?.from?.first_name in banlist
+            || message?.from?.username in banlist
+            || ("@" + message?.from?.username) in banlist;
+    } catch (e) { return false }
 }
 
 function handleMessage(message: Message) {
