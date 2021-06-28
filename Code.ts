@@ -333,7 +333,7 @@ function sendSticker(id, file_id) {
     Logger.log(response.getContentText());
 }
 
-type CachedPoll = Poll & { data: any }
+type CachedPoll = Poll & { data: any, chat_id: number }
 
 function getPoll(id): CachedPoll | null {
     let cache = CacheService.getDocumentCache().get("Polls")
@@ -343,12 +343,12 @@ function getPoll(id): CachedPoll | null {
     return row as CachedPoll
 }
 
-function setPoll(id, poll: Poll, data?: any): CachedPoll {
+function setPoll(id, poll: Poll, data?: any, chat_id?: number): CachedPoll {
     let cache = CacheService.getDocumentCache().get("Polls")
     if (!cache) cache = "{}"
     let parsedCache = JSON.parse(cache)
     let existingPoll = parsedCache[id] as CachedPoll
-    existingPoll = { ...poll, data: data || existingPoll.data }
+    existingPoll = { ...poll, data: data || existingPoll.data, chat_id: chat_id || existingPoll.chat_id }
     parsedCache[id] = existingPoll
     CacheService.getDocumentCache().put("Polls", JSON.stringify(parsedCache), 1200)
     return existingPoll
@@ -371,8 +371,12 @@ function handlePollTrigger(e: gas.Events.AppsScriptEvent) {
             PropertiesService.getScriptProperties().deleteProperty(e.triggerUid)
             let poll = getPoll(pollId)
             debug(poll)
-            if (poll.options[0].voter_count > poll.options[1].voter_count)
+            if (poll.options[0].voter_count > poll.options[1].voter_count) {
                 banUser("" + poll.data)
+                sendText(poll.chat_id, poll.data + " забанен", null)
+            } else {
+                sendText(poll.chat_id, poll.data + " оправдан", null)
+            }
         })
     } catch (ex) {
         debug(ex)
@@ -393,7 +397,7 @@ function sendBanPoll(id, user: string) {
     let payload = JSON.parse(response.getContentText()) as TLResult<Message>
     withLock(() => {
         if (payload.ok) {
-            setPoll(payload.result.poll.id, payload.result.poll, user)
+            setPoll(payload.result.poll.id, payload.result.poll, user, id)
             let triggerId =
                 ScriptApp
                     .newTrigger(handlePollTrigger.name).timeBased().after(330000)
