@@ -574,6 +574,25 @@ function success(id: number) {
     } else sendText(id, ok, null);
 }
 
+function context(id: number) {
+    const variants = [
+        "Чё, контекст нужен? А хуёв тебе на воротник не накидать?",
+        "Семён, к сожалению, не нахачил",
+        "Да это он ебанулся просто",
+        "Это про анальные полипы",
+        "Говорила мне мама, нахачь контексты, но нет",
+        "Это к вам вопрос, какого хера тут происходит",
+        "Сами наговорят хуйни, а бот разгребай",
+        "Да нет там никакого контекста, вы просто ебнутые",
+    ];
+
+    const ok = variants[Math.floor(Math.random() * variants.length)];
+
+    if(ok.indexOf("#sticker#") == 0) {
+        sendSticker(id, ok.replace("#sticker#", ""))
+    } else sendText(id, ok, null);
+}
+
 interface ParsedCite {
     who: string
     what: string
@@ -711,6 +730,11 @@ function handleMessage(message: Message) {
         }
         debug(`Trying to ban ${username}`)
         sendBanPoll(id, username)
+        return;
+    }
+
+    if (command.trim() === '/ctx' || command.trim() === '/context') {
+        context(id);
         return;
     }
 
