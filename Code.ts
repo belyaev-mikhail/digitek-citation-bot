@@ -137,6 +137,17 @@ function banUser(user: string) {
     bansheet.appendRow([`'${user}`])
 }
 
+function unbanUser(user: string) {
+    const bansheet = getBanSheet()
+    const banned = bansheet.getRange("A:A").getRichTextValues()
+    for (var i = 0; i < banned.length; i++) {
+        if(banned[i][0].getText() == user) {
+            bansheet.deleteRow(i + 1)
+            break
+        }
+    }
+}
+
 function getBanList(): PoorStringSet {
     let bansheet = getBanSheet()
     let banned = bansheet.getRange("A:A").getRichTextValues()
@@ -258,7 +269,7 @@ function richTextToMarkdown(richText: gas.Spreadsheet.RichTextValue): string {
 
 type TlResponse = { ok: false } | { ok: true, result: Message }
 
-function sendText(id, text: string, likeButton: InlineKeyboardButton, parse_mode: tl.ParseMode | null = null) {
+function sendText(id, text: string, likeButton: InlineKeyboardButton | null = null, parse_mode: tl.ParseMode | null = null) {
     if(text.length > 4096) {
         for(const chunk of text.match(/[^]{1,4096}/g)) {
             sendText(id, chunk, chunk.length < 4096 ? likeButton : null, parse_mode)
@@ -333,7 +344,7 @@ function sendSticker(id, file_id) {
     Logger.log(response.getContentText());
 }
 
-type CachedPoll = Poll & { data: any }
+type CachedPoll = Poll & { data: any, chat_id: number, ban: boolean }
 
 function getPoll(id): CachedPoll | null {
     let cache = CacheService.getDocumentCache().get("Polls")
@@ -343,12 +354,17 @@ function getPoll(id): CachedPoll | null {
     return row as CachedPoll
 }
 
-function setPoll(id, poll: Poll, data?: any): CachedPoll {
+function setPoll(id, poll: Poll, data?: any, chat_id?: number, ban: boolean = null): CachedPoll {
     let cache = CacheService.getDocumentCache().get("Polls")
     if (!cache) cache = "{}"
     let parsedCache = JSON.parse(cache)
     let existingPoll = parsedCache[id] as CachedPoll
-    existingPoll = { ...poll, data: data || existingPoll.data }
+    existingPoll = { 
+        ...poll,
+        data: data || existingPoll.data,
+        chat_id: chat_id || existingPoll.chat_id,
+        ban: ban != null ? ban : existingPoll.ban
+    }
     parsedCache[id] = existingPoll
     CacheService.getDocumentCache().put("Polls", JSON.stringify(parsedCache), 1200)
     return existingPoll
@@ -356,6 +372,10 @@ function setPoll(id, poll: Poll, data?: any): CachedPoll {
 
 function updatePoll(poll: Poll) {
     withLock(() => setPoll(poll.id, poll))
+}
+
+function checkPollResult(poll: Poll) {
+    return poll.options[0].voter_count > poll.options[1].voter_count
 }
 
 function handlePollTrigger(e: gas.Events.AppsScriptEvent) {
@@ -371,20 +391,29 @@ function handlePollTrigger(e: gas.Events.AppsScriptEvent) {
             PropertiesService.getScriptProperties().deleteProperty(e.triggerUid)
             let poll = getPoll(pollId)
             debug(poll)
-            if (poll.options[0].voter_count > poll.options[1].voter_count)
-                banUser("" + poll.data)
+            if (checkPollResult(poll)) {
+                if (poll.ban === true) {
+                    banUser("" + poll.data)
+                    sendText(poll.chat_id, `${poll.data} забанен`)
+                } else if (poll.ban === false) {
+                    unbanUser("" + poll.data)
+                    sendText(poll.chat_id, `${poll.data} амнистирован`)
+                }
+            } else {
+                sendText(poll.chat_id, `${poll.data} ${poll.ban ? "оправдан" : "не амнестирован"}`)
+            }
         })
     } catch (ex) {
         debug(ex)
     }
 }
 
-function sendBanPoll(id, user: string) {
+function sendBanPoll(chatId, user: string, ban: boolean) {
     const response = UrlFetchApp.fetch(`${telegramUrl()}/sendPoll`, {
         method: 'post',
         payload: serialize({
-            chat_id: "" + id,
-            question: `Ну чё, баним ${user}?`,
+            chat_id: "" + chatId,
+            question: ban ? `Ну чё, баним ${user}?`: `Ну чё, амнистируем ${user}?`,
             options: ["Jah", "Nein"],
             open_period: 300
         })
@@ -393,7 +422,7 @@ function sendBanPoll(id, user: string) {
     let payload = JSON.parse(response.getContentText()) as TLResult<Message>
     withLock(() => {
         if (payload.ok) {
-            setPoll(payload.result.poll.id, payload.result.poll, user)
+            setPoll(payload.result.poll.id, payload.result.poll, user, chatId, ban);
             let triggerId =
                 ScriptApp
                     .newTrigger(handlePollTrigger.name).timeBased().after(330000)
@@ -659,6 +688,10 @@ function checkBan(message: Paranoid<Message>): boolean {
     } catch (e) { return false }
 }
 
+function checkCommandArg(arg) {
+    return arg && !arg.startsWith("=");
+}
+
 function handleMessage(message: Message) {
     let text = message.text;
     const id = message.chat.id;
@@ -718,18 +751,26 @@ function handleMessage(message: Message) {
         return;
     }
 
-    if (command.trim() === '/ban') {
+    if (command.trim() === '/ban' || command.trim() === '/unban') {
         if (checkBan(message)) {
             sendText(id, "Ты забанен, чувак, сорян", null);
             return;
         }
         const username = args.join(" ").trim()
-        if (!username || username.startsWith("=")) {
+        if (!checkCommandArg(username)) {
             sendText(id, "Мамку свою забань, тестировщик хуев", null)
             return;
         }
-        debug(`Trying to ban ${username}`)
-        sendBanPoll(id, username)
+        const ban = command.trim() === '/ban'
+        if (!ban) {
+            const banned = getBanList();
+            if (banned[username] != true) {
+                sendText(id, `${username} не в бане`)
+                return;
+            }
+        }
+        debug(`Trying to ${ban ? 'ban' : 'unban'} ${username}`)
+        sendBanPoll(id, username, ban)
         return;
     }
 
