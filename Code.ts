@@ -531,7 +531,7 @@ function citeOfTheDay() {
         var id = +sheet.getRange(row, 1).getValue();
         if (id < 0) {
             const citation = getRandom();
-            sendText(id, "Цитата дня:\n" + citation.getText(), citation.getBtnData(), "Markdown");
+            sendText(id, `Цитата дня (#${citation.n}):\n${citation.getText()}`, citation.getBtnData(), "Markdown");
         }
     }
 }
@@ -603,7 +603,7 @@ function success(id: number) {
     } else sendText(id, ok, null);
 }
 
-function context(id: number) {
+function context(id: number, cid: number) {
     const variants = [
         "Чё, контекст нужен? А хуёв тебе на воротник не накидать?",
         "Семён, к сожалению, не нахачил",
@@ -614,9 +614,16 @@ function context(id: number) {
         "Сами наговорят хуйни, а бот разгребай",
         "Да нет там никакого контекста, вы просто ебнутые",
     ];
-
-    const ok = variants[Math.floor(Math.random() * variants.length)];
-
+    
+    const citation = cid ? getById(cid) : null;
+  
+    let ok;
+    if (!citation || citation.comment === `by ${SIG}`) {
+        ok = variants[Math.floor(Math.random() * variants.length)];
+    } else {
+        ok = citation.comment;
+    }
+    
     if(ok.indexOf("#sticker#") == 0) {
         sendSticker(id, ok.replace("#sticker#", ""))
     } else sendText(id, ok, null);
@@ -775,7 +782,8 @@ function handleMessage(message: Message) {
     }
 
     if (command.trim() === '/ctx' || command.trim() === '/context') {
-        context(id);
+        const cid = parseInt(text.replace('/ctx', '').replace('/context', '').trim());
+        context(id, cid);
         return;
     }
 
