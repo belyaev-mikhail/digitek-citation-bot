@@ -306,6 +306,17 @@ function sendPhoto(id, file: BlobSource) {
     Logger.log(response.getContentText());
 }
 
+function sendAudio(id, file: BlobSource) {
+    const response = UrlFetchApp.fetch(`${telegramUrl()}/sendAudio`, {
+        method: 'post',
+        payload: serialize({
+            chat_id: `${id}`,
+            audio: file
+        })
+    });
+    Logger.log(response.getContentText());
+}
+
 function answerCallbackQuery(id: string, text: string) {
     const payload: tl.AnswerCallbackQueryOptions = {
         callback_query_id: id,
@@ -471,6 +482,43 @@ class Citation {
 
     send(id) {
         sendText(id, this.getText(), this.getBtnData(), "Markdown");
+    }
+
+    speak(id) {
+        const text = this.getText()
+        const json = {
+            "audioConfig": {
+                "audioEncoding": "MP3",
+                "pitch": "0.00",
+                "speakingRate": "1.00"
+            },
+            "input": {
+                "text": text
+            },
+            "voice": {
+                "languageCode": "ru-RU",
+                "name": "ru-RU-Wavenet-A"
+            }
+        }
+
+        //APIリクエストするためのペイロードやURL、ヘッダー情報を定義します。
+        const payload = JSON.stringify(json);
+        const url = "https://texttospeech.googleapis.com/v1beta1/text:synthesize";
+        const headers = {
+            "Content-Type": "application/json; charset=UTF-8",
+            "Authorization": "Bearer " + ScriptApp.getOAuthToken(),
+        };
+        const options = {
+            "method": "post" as "post",
+            "headers": headers,
+            "payload": payload,
+        };
+        const data = UrlFetchApp.fetch(url, options);
+        const talkData = JSON.parse(data.getContentText())
+        const decoded = Utilities.base64Decode(talkData.audioContent);
+
+        const blob = Utilities.newBlob(decoded, "audio/mpeg");
+        sendAudio(id, blob);
     }
 }
 
@@ -796,6 +844,21 @@ function handleMessage(message: Message) {
             return;
         }
         citation.send(id);
+        return;
+    }
+
+    if (text.trim().indexOf('/speak') === 0) {
+        const cid = parseInt(text.replace('/speak', '').trim());
+        if (cid != cid) {
+            sendText(id, "Нет такой цитаты", null);
+            return;
+        }
+        const citation = getById(cid);
+        if (!citation) {
+            sendText(id, "Нет такой цитаты", null);
+            return;
+        }
+        citation.speak(id);
         return;
     }
     
