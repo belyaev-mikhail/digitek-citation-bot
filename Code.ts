@@ -6,6 +6,9 @@ import DoPost = GoogleAppsScript.Events.DoPost;
 import {ok} from "assert";
 import Sheet = GoogleAppsScript.Spreadsheet.Sheet;
 import TriggerSource = GoogleAppsScript.Script.TriggerSource;
+import Slides = GoogleAppsScript.Slides;
+import Presentation = GoogleAppsScript.Slides.Presentation;
+import EmbeddedChart = GoogleAppsScript.Spreadsheet.EmbeddedChart;
 
 declare var BOT_TOKEN;
 declare var SCRIPT_ID;
@@ -747,6 +750,25 @@ function checkCommandArg(arg) {
     return arg && !arg.startsWith("=");
 }
 
+function getCompanionSlides(): Presentation {
+    const slideId = PropertiesService.getScriptProperties().getProperty("slides-id")
+    let slides: Slides
+    if (!slideId) {
+        slides = SlidesApp.create("temp")
+        PropertiesService.getScriptProperties().setProperty("slides-id", slides.getId())
+    } else {
+        slides = SlidesApp.openById(slideId)
+    }
+    return slides
+}
+
+function chartHack(chart: EmbeddedChart): BlobSource {
+    const image = getCompanionSlides().getSlides()[0].insertSheetsChartAsImage(chart)
+    const result = image.getAs("image/png")
+    image.remove()
+    return result
+}
+
 function handleMessage(message: Message) {
     let text = message.text;
     const id = message.chat.id;
@@ -836,7 +858,7 @@ function handleMessage(message: Message) {
     }
 
     if(command.trim() === '/chart') {
-        sendPhoto(id, getCitationSheet().getCharts()[0]);
+        sendPhoto(id, chartHack(getCitationSheet().getCharts()[0]));
         return;
     }
 
