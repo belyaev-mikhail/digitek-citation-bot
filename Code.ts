@@ -197,6 +197,7 @@ function serialize(payload: object) {
     for(const key in payload) if(payload.hasOwnProperty(key)) {
         const value = payload[key];
         if(value != null && value.getBlob) result[key] = value.getBlob();
+        else if (value != null && value.copyBlob) result[key] = value; // some blobs are not blobSources
         else if(value != null && typeof value === 'object') result[key] = JSON.stringify(value);
         else if(value != null && Array.isArray(value)) result[key] = JSON.stringify(value);
         else result[key] = value;
