@@ -415,7 +415,7 @@ function handlePollTrigger(e: gas.Events.AppsScriptEvent) {
                     sendText(poll.chat_id, `${poll.data} амнистирован`)
                 }
             } else {
-                sendText(poll.chat_id, `${poll.data} ${poll.ban ? "оправдан" : "не амнестирован"}`)
+                sendText(poll.chat_id, `${poll.data} ${poll.ban ? "оправдан" : "не амнистирован"}`)
             }
         })
     } catch (ex) {
@@ -485,7 +485,7 @@ class Citation {
     }
 
     send(id) {
-        sendText(id, this.getText(), this.getBtnData(), "Markdown");
+        sendText(id, `(#${this.n}): ${this.getText()}`, this.getBtnData(), "Markdown");
     }
 
     speak(id) {
@@ -560,7 +560,7 @@ function searchCitations(text: string): string[] {
     return [...getCitationSheet().getRange(`A2:D${last}`).getRichTextValues()
         .map((it, ix) => new Citation(ix+2, it))
         .filter(citation => citation.plainWhat.toLowerCase().indexOf(text.toLowerCase()) !== -1)
-        .map((citation) => `Цитата #${citation.n}:\n${citation.getText()}`)];
+        .map((citation) => `(#${citation.n}):\n${citation.getText()}`)];
 }
 
 function isAllowed(id) {
