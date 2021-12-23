@@ -560,10 +560,15 @@ class Citation {
         sendTextOrEntity(id, ok)
     }
 
-    setCommentAndCommit(comment: string) {
-        getCitationSheet()
+    setCommentAndCommit(comment: string): 'done' | 'nope' {
+        const ctxRange = getCitationSheet()
             .getRange(this.n, 3, 1, 1)
-            .setValue(comment)
+        const existing = ctxRange.getRichTextValue().getText()
+        if (existing.indexOf("#message#") != 0 && existing != `by ${SIG}`) {
+            return 'nope'
+        }
+        ctxRange.setValue(comment)
+        return 'done'
     }
 }
 
@@ -904,8 +909,12 @@ function handleMessage(message: Message) {
                 return;
             }
             const ctx = text.replace(command, '').replace(`${citation.n}`, '').trim();
-            citation.setCommentAndCommit(ctx);
-            success(id);
+            const tryCommit = citation.setCommentAndCommit(ctx);
+            if (tryCommit === 'done') {
+                success(id)
+            } else {
+                sendText(id, "He")
+            }
             return;
         }
         case '/chart':
