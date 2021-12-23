@@ -312,13 +312,17 @@ function sendTextOrEntity(id, text: string, parse_mode: tl.ParseMode | null = nu
 function sendReplying(id, messageId) {
     const payload: SendMessage = {
         chat_id: `${id}`,
-        text: '↓',
+        text: '↑',
         reply_to_message_id: messageId
     };
-    var response = UrlFetchApp.fetch(`${telegramUrl()}/sendMessage`, {
+    const response = UrlFetchApp.fetch(`${telegramUrl()}/sendMessage`, {
         method: 'post',
-        payload: serialize(payload)
+        payload: serialize(payload),
+        muteHttpExceptions: true
     });
+    if (response.getResponseCode() != 200) {
+        sendText(id, "Там сообщение из другого чата, я не могу его сюда отправить, сорри")
+    }
     Logger.log(response.getContentText());
 }
 
