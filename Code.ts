@@ -299,6 +299,29 @@ function sendText(id, text: string, likeButton: InlineKeyboardButton | null = nu
     Logger.log(response.getContentText());
 }
 
+function sendTextOrEntity(id, text: string, parse_mode: tl.ParseMode | null = null) {
+    const stickerSig = "#sticker#"
+    const messageSig = "#message#"
+    if(text.indexOf(stickerSig) == 0) {
+        sendSticker(id, text.replace(stickerSig, ""))
+    } else if (text.indexOf(messageSig)) {
+        sendReplying(id, text.replace(messageSig, "").trim())
+    } else sendText(id, text, null, parse_mode);
+}
+
+function sendReplying(id, messageId) {
+    const payload: SendMessage = {
+        chat_id: `${id}`,
+        text: '↓',
+        reply_to_message_id: messageId
+    };
+    var response = UrlFetchApp.fetch(`${telegramUrl()}/sendMessage`, {
+        method: 'post',
+        payload: serialize(payload)
+    });
+    Logger.log(response.getContentText());
+}
+
 function sendPhoto(id, file: BlobSource) {
     const response = UrlFetchApp.fetch(`${telegramUrl()}/sendPhoto`, {
         method: 'post',
@@ -487,42 +510,26 @@ class Citation {
     send(id) {
         sendText(id, `(#${this.n}): ${this.getText()}`, this.getBtnData(), "Markdown");
     }
+    sendContext(id) {
+        const variants = [
+            "Чё, контекст нужен? А хуёв тебе на воротник не накидать?",
+            "Семён, к сожалению, не нахачил",
+            "Да это он ебанулся просто",
+            "Это про анальные полипы",
+            "Говорила мне мама, нахачь контексты, но нет",
+            "Это к вам вопрос, какого хера тут происходит",
+            "Сами наговорят хуйни, а бот разгребай",
+            "Да нет там никакого контекста, вы просто ебнутые",
+        ];
 
-    speak(id) {
-        const text = this.getText()
-        const json = {
-            "audioConfig": {
-                "audioEncoding": "MP3",
-                "pitch": "0.00",
-                "speakingRate": "1.00"
-            },
-            "input": {
-                "text": text
-            },
-            "voice": {
-                "languageCode": "ru-RU",
-                "name": "ru-RU-Wavenet-A"
-            }
+        let ok;
+        if (this.comment === `by ${SIG}`) {
+            ok = variants[Math.floor(Math.random() * variants.length)];
+        } else {
+            ok = this.comment;
         }
 
-        //APIリクエストするためのペイロードやURL、ヘッダー情報を定義します。
-        const payload = JSON.stringify(json);
-        const url = "https://texttospeech.googleapis.com/v1beta1/text:synthesize";
-        const headers = {
-            "Content-Type": "application/json; charset=UTF-8",
-            "Authorization": "Bearer " + ScriptApp.getOAuthToken(),
-        };
-        const options = {
-            "method": "post" as "post",
-            "headers": headers,
-            "payload": payload,
-        };
-        const data = UrlFetchApp.fetch(url, options);
-        const talkData = JSON.parse(data.getContentText())
-        const decoded = Utilities.base64Decode(talkData.audioContent);
-
-        const blob = Utilities.newBlob(decoded, "audio/mpeg");
-        sendAudio(id, blob);
+        sendTextOrEntity(id, ok)
     }
 }
 
@@ -650,35 +657,7 @@ function success(id: number) {
 
     const ok = variants[Math.floor(Math.random() * variants.length)];
 
-    if(ok.indexOf("#sticker#") == 0) {
-        sendSticker(id, ok.replace("#sticker#", ""))
-    } else sendText(id, ok, null);
-}
-
-function context(id: number, cid: number) {
-    const variants = [
-        "Чё, контекст нужен? А хуёв тебе на воротник не накидать?",
-        "Семён, к сожалению, не нахачил",
-        "Да это он ебанулся просто",
-        "Это про анальные полипы",
-        "Говорила мне мама, нахачь контексты, но нет",
-        "Это к вам вопрос, какого хера тут происходит",
-        "Сами наговорят хуйни, а бот разгребай",
-        "Да нет там никакого контекста, вы просто ебнутые",
-    ];
-    
-    const citation = cid ? getById(cid) : null;
-  
-    let ok;
-    if (!citation || citation.comment === `by ${SIG}`) {
-        ok = variants[Math.floor(Math.random() * variants.length)];
-    } else {
-        ok = citation.comment;
-    }
-    
-    if(ok.indexOf("#sticker#") == 0) {
-        sendSticker(id, ok.replace("#sticker#", ""))
-    } else sendText(id, ok, null);
+    sendTextOrEntity(id, ok)
 }
 
 interface ParsedCite {
@@ -699,11 +678,21 @@ function parseCite(text: string): ParsedCite | null {
 }
 
 function newCitation(name: string, ctext: gas.Spreadsheet.RichTextValue, src: CitationSource) {
+    let origMessageId = null
+    switch (src.type) {
+        case "forward":
+            origMessageId = src.messageId
+            break
+        case "reply":
+            origMessageId = src.replyTo.messageId
+            break
+    }
+    let origMessageIdSig = origMessageId && `#message#${origMessageId}`
     withLock(() => {
         getCitationSheet().appendRow([
             name.trim(),
             ctext.getText(), // TODO trim???
-            `by ${SIG}`,
+            origMessageIdSig || `by ${SIG}`,
             "{}",
             null,
             JSON.stringify(src)
@@ -770,6 +759,25 @@ function chartHack(chart: EmbeddedChart): BlobSource {
     return result
 }
 
+function parseQuantity(args: string[]) {
+    let n = parseInt(args[0].trim())
+    if (n != n || n < 0) n = 1
+    if (n > 30) n = 30
+    return n
+}
+
+function parseCitationId(args: string[]): (Citation | null) {
+    let cid = parseInt(args[0].trim())
+    if (cid != cid) {
+        return null;
+    }
+    const citation = getById(cid);
+    if (!citation) {
+        return null;
+    }
+    return citation;
+}
+
 function handleMessage(message: Message) {
     let text = message.text;
     const id = message.chat.id;
@@ -794,190 +802,159 @@ function handleMessage(message: Message) {
         return;
     }
 
-    const [command, ...args] = text.split(RegExp('\\s+'))
+    let [command, ...args] = text.split(RegExp('\\s+'))
+    command = command.trim()
 
-    if (command.trim() === '/random') {
-        let n = parseInt(args[0])
-        if(n != n || n < 0) n = 1
-        if(n > 30) n = 30
-        for(let i = 0; i < n; ++i) {
-            getRandom().send(id);
-        }
-
-        return;
-    }
-
-    if (command.trim() === '/top') {
-        let n = parseInt(args[0])
-        if(n != n || n < 0) n = 1
-        if(n > 30) n = 30
-        const tops = getTop(n)
-        for(const e of tops) {
-            e.send(id)
-        }
-        return;
-    }
-
-    if (command.trim() === '/last') {
-        let n = parseInt(args[0])
-        if(n != n || n < 0) n = 1
-        if(n > 30) n = 30
-        const lasts = getLast(n)
-        for(const e of lasts) {
-            e.send(id)
-        }
-        return;
-    }
-
-    if (command.trim() === '/ban' || command.trim() === '/unban') {
-        if (checkBan(message)) {
-            sendText(id, "Ты забанен, чувак, сорян", null);
+    switch (command) {
+        case '/random': {
+            let n = parseQuantity(args)
+            for (let i = 0; i < n; ++i) {
+                getRandom().send(id);
+            }
             return;
         }
-        const username = args.join(" ").trim()
-        if (!checkCommandArg(username)) {
-            sendText(id, "Мамку свою забань, тестировщик хуев", null)
+        case '/top': {
+            let n = parseQuantity(args)
+            const tops = getTop(n)
+            for (const e of tops) {
+                e.send(id)
+            }
             return;
         }
-        const ban = command.trim() === '/ban'
-        if (!ban) {
-            const banned = getBanList();
-            if (banned[username] != true) {
-                sendText(id, `${username} не в бане`)
+        case '/last': {
+            let n = parseQuantity(args)
+            const lasts = getLast(n)
+            for (const e of lasts) {
+                e.send(id)
+            }
+            return;
+        }
+        case '/ban':
+        case '/unban':
+            if (checkBan(message)) {
+                sendText(id, "Ты забанен, чувак, сорян", null);
                 return;
             }
-        }
-        debug(`Trying to ${ban ? 'ban' : 'unban'} ${username}`)
-        sendBanPoll(id, username, ban)
-        return;
-    }
-
-    if (command.trim() === '/ctx' || command.trim() === '/context') {
-        const cid = parseInt(text.replace('/ctx', '').replace('/context', '').trim());
-        context(id, cid);
-        return;
-    }
-
-    if(command.trim() === '/chart') {
-        sendPhoto(id, chartHack(getCitationSheet().getCharts()[0]));
-        return;
-    }
-
-    if (text.trim().indexOf('/read') === 0) {
-        const cid = parseInt(text.replace('/read', '').trim());
-        if (cid != cid) {
-            sendText(id, "Нет такой цитаты", null);
+            const username = args.join(" ").trim()
+            if (!checkCommandArg(username)) {
+                sendText(id, "Мамку свою забань, тестировщик хуев", null)
+                return;
+            }
+            const ban = command === '/ban'
+            if (!ban) {
+                const banned = getBanList();
+                if (banned[username] != true) {
+                    sendText(id, `${username} не в бане`)
+                    return;
+                }
+            }
+            debug(`Trying to ${ban ? 'ban' : 'unban'} ${username}`)
+            sendBanPoll(id, username, ban)
+            return;
+        case '/ctx':
+        case '/context': {
+            const citation = parseCitationId(args);
+            if (!citation) {
+                sendText(id, "Нет такой цитаты", null);
+                return;
+            }
+            citation.sendContext(id)
             return;
         }
-        const citation = getById(cid);
-        if (!citation) {
-            sendText(id, "Нет такой цитаты", null);
+        case '/chart':
+            sendPhoto(id, chartHack(getCitationSheet().getCharts()[0]));
+            return;
+        case '/read': {
+            const citation = parseCitationId(args);
+            if (!citation) {
+                sendText(id, "Нет такой цитаты", null);
+                return;
+            }
+            citation.send(id);
             return;
         }
-        citation.send(id);
-        return;
-    }
-
-    if (text.trim().indexOf('/speak') === 0) {
-        const cid = parseInt(text.replace('/speak', '').trim());
-        if (cid != cid) {
-            sendText(id, "Нет такой цитаты", null);
+        case '/search': {
+            const min_search = 3;
+            const searchText = text.replace('/search', '').trim();
+            if (searchText.length < min_search) {
+                sendText(id, "А поконкретнее?", null);
+                return;
+            }
+            const citations = searchCitations(searchText);
+            if (citations.length == 0) {
+                sendText(id, "Нет таких цитат", null);
+                return;
+            }
+            sendText(id, citations.join("\n\n"), null, "Markdown");
             return;
         }
-        const citation = getById(cid);
-        if (!citation) {
-            sendText(id, "Нет такой цитаты", null);
-            return;
-        }
-        citation.speak(id);
-        return;
-    }
-    
-    if (text.trim().indexOf('/search') === 0) {
-        const min_search = 3;
-        const searchText = text.replace('/search', '').trim();
-        if(searchText.length < min_search) {
-            sendText(id, "А поконкретнее?", null);
-            return;
-        }
-        const citations = searchCitations(searchText);
-        if (citations.length == 0) {
-            sendText(id, "Нет таких цитат", null);
-            return;
-        }
-        sendText(id, citations.join("\n\n"), null, "Markdown");
-        return;
-    }
-
-    if (text.trim().indexOf('/pic') === 0) {
-        const picId = text.replace('/pic', '').trim();
-        const row = parseInt(picId);
-        try {
-            const file = (row == row) ? getFileByRow(row) : getFileByDrive(picId);
-            sendPhoto(id, file);
-        } catch (ex) {
-            sendText(id, "Нет такого файла", null)
-        }
-        return;
-    }
-
-    if (text.trim().indexOf('/debug_get_em') === 0) { // TODO delete
-        sendText(id, JSON.stringify(getEditableMessages()), null);
-    }
-
-    if (message.chat.type === "private") {
-        if (checkBan(message)) {
-            sendText(id, "Ты забанен, чувак, сорян", null);
-            return;
-        }
-        if (!message.forward_from && !message.forward_sender_name) {
-            tryManual(text, id, message.message_id, message.chat.id);
-            return
-        }
-        var name = getForwardedName(message) || "Some guy";
-        success(id);
-
-        newCitation(name, messageToRichText(message), {
-            messageId: message.message_id,
-            chatId: message.chat.id,
-            type: "forward"
-        });
-    }
-
-    if (text.trim() === "/cite") {
-        if (checkBan(message)) {
-            sendText(id, "Ты забанен, чувак, сорян", null);
-            return;
-        }
-        if (!message.reply_to_message) {
-            sendText(id, "Я умею цитировать только реплаи, сорян\nМожешь зафорвардить сообщение мне в личку", null);
-            return;
-        }
-        const rm = message.reply_to_message;
-        const name = getForwardedName(rm) || rm.from.first_name || rm.from.username;
-        const text = rm.text;
-        if (!text) {
-            if (rm.photo) {
-                handlePhoto(pickPhotoSize(rm.photo), message.chat.id);
-            } else {
-                sendText(id, "Не", null)
+        case '/pic': {
+            const picId = text.replace('/pic', '').trim();
+            const row = parseInt(picId);
+            try {
+                const file = (row == row) ? getFileByRow(row) : getFileByDrive(picId);
+                sendPhoto(id, file);
+            } catch (ex) {
+                sendText(id, "Нет такого файла", null)
             }
             return;
         }
-        success(id);
+        default:
+            if (message.chat.type === "private") {
+                if (checkBan(message)) {
+                    sendText(id, "Ты забанен, чувак, сорян", null);
+                    return;
+                }
+                if (!message.forward_from && !message.forward_sender_name) {
+                    tryManual(text, id, message.message_id, message.chat.id);
+                    return
+                }
+                var name = getForwardedName(message) || "Some guy";
+                success(id);
 
-        newCitation(name, messageToRichText(rm), {
-            messageId: message.message_id,
-            chatId: message.chat.id,
-            replyTo: {
-                messageId: message.reply_to_message.message_id,
-                chatId: message.reply_to_message.chat.id,
-            },
-            type: "reply"
-        });
+                newCitation(name, messageToRichText(message), {
+                    messageId: message.message_id,
+                    chatId: message.chat.id,
+                    type: "forward"
+                });
+            }
+
+            if (command === "/cite") {
+                if (checkBan(message)) {
+                    sendText(id, "Ты забанен, чувак, сорян", null);
+                    return;
+                }
+                if (!message.reply_to_message) {
+                    sendText(id, "Я умею цитировать только реплаи, сорян\nМожешь зафорвардить сообщение мне в личку", null);
+                    return;
+                }
+                const rm = message.reply_to_message;
+                const name = getForwardedName(rm) || rm.from.first_name || rm.from.username;
+                const text = rm.text;
+                if (!text) {
+                    if (rm.photo) {
+                        handlePhoto(pickPhotoSize(rm.photo), message.chat.id);
+                    } else {
+                        sendText(id, "Не", null)
+                    }
+                    return;
+                }
+                success(id);
+
+                newCitation(name, messageToRichText(rm), {
+                    messageId: message.message_id,
+                    chatId: message.chat.id,
+                    replyTo: {
+                        messageId: message.reply_to_message.message_id,
+                        chatId: message.reply_to_message.chat.id,
+                    },
+                    type: "reply"
+                });
+            }
+
+            tryManual(text, id, message.message_id, message.chat.id);
+            break;
     }
-
-    tryManual(text, id, message.message_id, message.chat.id);
 }
 
 function handleEditedMessage(editedMessage: Message) {
