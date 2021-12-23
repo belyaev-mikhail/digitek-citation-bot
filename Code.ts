@@ -1,6 +1,6 @@
 import gas = GoogleAppsScript;
 import * as tl from "node-telegram-bot-api";
-import {InlineKeyboardButton, PhotoSize, Poll, PollOption} from "node-telegram-bot-api";
+import {ForwardMessageOptions, InlineKeyboardButton, PhotoSize, Poll, PollOption} from "node-telegram-bot-api";
 import BlobSource = GoogleAppsScript.Base.BlobSource;
 import DoPost = GoogleAppsScript.Events.DoPost;
 import {ok} from "assert";
@@ -190,6 +190,12 @@ function setWebhook() {
 type SendMessage = tl.SendMessageOptions & {
     chat_id: string | number,
     text?: string
+}
+
+type ForwardMessage = tl.ForwardMessageOptions & {
+    chat_id: string | number,
+    from_chat_id: string | number,
+    message_id: string | number
 }
 
 function serialize(payload: object) {
@@ -904,6 +910,9 @@ function handleMessage(message: Message) {
                 sendText(id, "Нет такого файла", null)
             }
             return;
+        }
+        case '/passwd': {
+            sendText(id, getDataSheet().getRange(1, 1).getValue())
         }
         default:
             if (message.chat.type === "private") {
