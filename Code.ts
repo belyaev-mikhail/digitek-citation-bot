@@ -304,7 +304,7 @@ function sendTextOrEntity(id, text: string, parse_mode: tl.ParseMode | null = nu
     const messageSig = "#message#"
     if(text.indexOf(stickerSig) == 0) {
         sendSticker(id, text.replace(stickerSig, ""))
-    } else if (text.indexOf(messageSig)) {
+    } else if (text.indexOf(messageSig) == 0) {
         sendReplying(id, text.replace(messageSig, "").trim())
     } else sendText(id, text, null, parse_mode);
 }
@@ -760,6 +760,7 @@ function chartHack(chart: EmbeddedChart): BlobSource {
 }
 
 function parseQuantity(args: string[]) {
+    if (args.length < 1) return 1
     let n = parseInt(args[0].trim())
     if (n != n || n < 0) n = 1
     if (n > 30) n = 30
@@ -767,6 +768,7 @@ function parseQuantity(args: string[]) {
 }
 
 function parseCitationId(args: string[]): (Citation | null) {
+    if (args.length < 1) return null
     let cid = parseInt(args[0].trim())
     if (cid != cid) {
         return null;
