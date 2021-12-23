@@ -311,11 +311,16 @@ function sendTextOrEntity(id, text: string, parse_mode: tl.ParseMode | null = nu
     if(text.indexOf(stickerSig) == 0) {
         sendSticker(id, text.replace(stickerSig, ""))
     } else if (text.indexOf(messageSig) == 0) {
-        sendReplying(id, text.replace(messageSig, "").trim())
+        let split = text.replace(messageSig, "").split("#")
+        if (split.length < 2) sendText(id, "Я хз, что это за сообщение")
+        else {
+            const [messageId, chatId] = split
+            sendReplying(id, messageId, chatId)
+        }
     } else sendText(id, text, null, parse_mode);
 }
 
-function sendReplying(id, messageId) {
+function sendReplying(id, messageId, originalChatId) {
     const payload: SendMessage = {
         chat_id: `${id}`,
         text: '↑',
@@ -327,7 +332,19 @@ function sendReplying(id, messageId) {
         muteHttpExceptions: true
     });
     if (response.getResponseCode() != 200) {
-        sendText(id, "Там сообщение из другого чата, я не могу его сюда отправить, сорри")
+        const payload: ForwardMessage = {
+            chat_id: `${id}`,
+            from_chat_id: `${originalChatId}`,
+            message_id: `${messageId}`,
+        };
+        const response = UrlFetchApp.fetch(`${telegramUrl()}/forwardMessage`, {
+            method: 'post',
+            payload: serialize(payload),
+            muteHttpExceptions: true
+        });
+        if (response.getResponseCode() != 200) {
+            sendText(id, "Там сообщение из другого чата, я не могу его сюда отправить, сорри")
+        }
     }
     Logger.log(response.getContentText());
 }
@@ -697,7 +714,7 @@ function newCitation(name: string, ctext: gas.Spreadsheet.RichTextValue, src: Ci
             origMessageId = src.replyTo.messageId
             break
     }
-    let origMessageIdSig = origMessageId && `#message#${origMessageId}`
+    let origMessageIdSig = origMessageId && `#message#${origMessageId}#${src.chatId}`
     withLock(() => {
         getCitationSheet().appendRow([
             name.trim(),
