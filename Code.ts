@@ -9,6 +9,7 @@ import TriggerSource = GoogleAppsScript.Script.TriggerSource;
 import Slides = GoogleAppsScript.Slides;
 import Presentation = GoogleAppsScript.Slides.Presentation;
 import EmbeddedChart = GoogleAppsScript.Spreadsheet.EmbeddedChart;
+import RichTextValue = GoogleAppsScript.Spreadsheet.RichTextValue;
 
 declare var BOT_TOKEN;
 declare var SCRIPT_ID;
@@ -558,6 +559,12 @@ class Citation {
 
         sendTextOrEntity(id, ok)
     }
+
+    setCommentAndCommit(comment: string) {
+        getCitationSheet()
+            .getRange(this.n, 3, 1, 1)
+            .setValue(comment)
+    }
 }
 
 function getRandom(): Citation {
@@ -888,6 +895,17 @@ function handleMessage(message: Message) {
                 return;
             }
             citation.sendContext(id)
+            return;
+        }
+        case '/add_context': {
+            const citation = parseCitationId(args);
+            if (!citation) {
+                sendText(id, "Нет такой цитаты", null);
+                return;
+            }
+            const ctx = text.replace(command, '').replace(`${citation.n}`, '').trim();
+            citation.setCommentAndCommit(ctx);
+            success(id);
             return;
         }
         case '/chart':
