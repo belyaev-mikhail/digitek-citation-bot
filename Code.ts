@@ -912,7 +912,8 @@ function handleMessage(message: Message) {
             return;
         }
         case '/passwd': {
-            sendText(id, getDataSheet().getRange(1, 1).getValue())
+            sendText(id, getDataSheet().getRange(1, 1).getValue());
+            return;
         }
         default:
             if (message.chat.type === "private") {
