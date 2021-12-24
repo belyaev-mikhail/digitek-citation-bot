@@ -979,7 +979,7 @@ function handleMessage(message: Message) {
                 });
             }
 
-            if (command === "/cite") {
+            if (text.trim() === "/cite") {
                 if (checkBan(message)) {
                     sendText(id, "Ты забанен, чувак, сорян", null);
                     return;
