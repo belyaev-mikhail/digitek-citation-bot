@@ -306,7 +306,7 @@ function sendText(id, text: string, likeButton: InlineKeyboardButton | null = nu
     Logger.log(response.getContentText());
 }
 
-function sendTextOrEntity(id, text: string, parse_mode: tl.ParseMode | null = null) {
+function sendTextOrEntity(id, text: string, parse_mode: tl.ParseMode | null = null, disableNotification: boolean = false) {
     const stickerSig = "#sticker#"
     const messageSig = "#message#"
     if(text.indexOf(stickerSig) == 0) {
@@ -316,16 +316,17 @@ function sendTextOrEntity(id, text: string, parse_mode: tl.ParseMode | null = nu
         if (split.length < 2) sendText(id, "Я хз, что это за сообщение")
         else {
             const [messageId, chatId] = split
-            sendReplying(id, messageId, chatId)
+            sendReplying(id, messageId, chatId, disableNotification)
         }
     } else sendText(id, text, null, parse_mode);
 }
 
-function sendReplying(id, messageId, originalChatId) {
+function sendReplying(id, messageId, originalChatId, disableNotification: boolean = false) {
     const payload: SendMessage = {
         chat_id: `${id}`,
         text: '↑',
-        reply_to_message_id: messageId
+        reply_to_message_id: messageId,
+        disable_notification: disableNotification
     };
     const response = UrlFetchApp.fetch(`${telegramUrl()}/sendMessage`, {
         method: 'post',
@@ -442,6 +443,27 @@ function updatePoll(poll: Poll) {
 
 function checkPollResult(poll: Poll) {
     return poll.options[0].voter_count > poll.options[1].voter_count
+
+}
+
+function handleQuizTrigger(e: gas.Events.AppsScriptEvent) {
+    try {
+        withLock(() => {
+            for (const t of ScriptApp.getProjectTriggers()) {
+                if (t.getUniqueId() == e.triggerUid) {
+                    ScriptApp.deleteTrigger(t)
+                    break
+                }
+            }
+            let pollId = PropertiesService.getScriptProperties().getProperty(e.triggerUid)
+            PropertiesService.getScriptProperties().deleteProperty(e.triggerUid)
+            let poll = getPoll(pollId)
+            const citation = getById(poll.data)
+            sendText(poll.chat_id, `Викторина окончена. Это была цитата #${citation.n}. Автор - ${citation.who}`)
+        })
+    } catch (ex) {
+        debug(ex)
+    }
 }
 
 function handlePollTrigger(e: gas.Events.AppsScriptEvent) {
@@ -492,6 +514,68 @@ function sendBanPoll(chatId, user: string, ban: boolean) {
             let triggerId =
                 ScriptApp
                     .newTrigger(handlePollTrigger.name).timeBased().after(330000)
+                    .create().getUniqueId()
+            PropertiesService.getScriptProperties().setProperty(triggerId, payload.result.poll.id)
+        }
+    })
+}
+
+function getAllAuthors() : string[] {
+    const sheet = getCitationSheet()
+    let max = sheet.getLastRow() - 1;
+    let values = sheet.getRange(1, 1, max).getValues();
+    let authors = new Set<string>();
+    values.map((value: string[]) => authors.add(value[0]))
+    return Array.from(authors.values());
+}
+
+function getRandomAuthors(n: number, withAuthor = null) {
+    const allAuthors = getAllAuthors()
+    let randomAuthors = new Set<string>();
+    if (withAuthor) {
+        randomAuthors.add(withAuthor)
+    }
+    while (randomAuthors.size < n) {
+        let random = Math.floor(Math.random() * allAuthors.length);
+        let author = allAuthors[random]
+        randomAuthors.add(author)
+    }
+    let result = Array.from(randomAuthors.values())
+    // Shuffle
+    let currentIndex = result.length,  randomIndex;
+    while (currentIndex != 0) {
+        randomIndex = Math.floor(Math.random() * currentIndex);
+        currentIndex--;
+        // swap
+        [result[currentIndex], result[randomIndex]] = [result[randomIndex], result[currentIndex]];
+    }
+    return result;
+}
+
+function sendCitationQuiz(chatId) {
+    const citation = getRandom()
+    const authors = getRandomAuthors(10, citation.who)
+    const correct_id = authors.indexOf(citation.who)
+    const QUIZ_TIMEOUT_SEC = 30;
+    const response = UrlFetchApp.fetch(`${telegramUrl()}/sendPoll`, {
+        method: 'post',
+        payload: serialize({
+            chat_id: "" + chatId,
+            type: "quiz",
+            question: `Угадай автора цитаты:\n"${citation.what}"`,
+            options: authors,
+            correct_option_id: correct_id,
+            open_period: QUIZ_TIMEOUT_SEC,
+            is_anonymous: false
+        })
+    });
+    let payload = JSON.parse(response.getContentText()) as TLResult<Message>
+    withLock(() => {
+        if (payload.ok) {
+            setPoll(payload.result.poll.id, payload.result.poll, citation.n, chatId, false);
+            let triggerId =
+                ScriptApp
+                    .newTrigger(handleQuizTrigger.name).timeBased().after(QUIZ_TIMEOUT_SEC * 1000)
                     .create().getUniqueId()
             PropertiesService.getScriptProperties().setProperty(triggerId, payload.result.poll.id)
         }
@@ -556,8 +640,7 @@ class Citation {
         } else {
             ok = this.comment;
         }
-
-        sendTextOrEntity(id, ok)
+        sendTextOrEntity(id, ok, true)
     }
 
     setCommentAndCommit(comment: string): 'done' | 'nope' {
@@ -892,6 +975,10 @@ function handleMessage(message: Message) {
             debug(`Trying to ${ban ? 'ban' : 'unban'} ${username}`)
             sendBanPoll(id, username, ban)
             return;
+        case '/quiz': {
+            sendCitationQuiz(id)
+            return;
+        }
         case '/ctx':
         case '/context': {
             const citation = parseCitationId(args);
