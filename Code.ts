@@ -598,6 +598,8 @@ class Citation {
     plainWhat: string;
     comment: string;
     likes: object;
+    source?: CitationSource;
+
     constructor(n: number, values: Array<gas.Spreadsheet.RichTextValue | null>) {
         this.n = n;
         this.who = values[0]?.getText() || '';
@@ -605,6 +607,9 @@ class Citation {
         this.plainWhat = values[1]!!.getText();
         this.comment = values[2]!!.getText();
         this.likes = JSON.parse(values[3]!!.getText() || "{}");
+        if (values.length > 5
+            && values[5]
+            && values[5].getText()) this.source = JSON.parse(values[5]?.getText())
     }
 
     likesCount() {
@@ -635,8 +640,12 @@ class Citation {
         ];
 
         let ok;
-        if (this.comment === `by ${SIG}`) {
-            ok = variants[Math.floor(Math.random() * variants.length)];
+        if (this.comment === `by ${SIG}` || !this.comment) {
+            if (this.source) {
+                ok = `#message#${this.source.messageId}#${this.source.chatId}`
+            } else {
+                ok = variants[Math.floor(Math.random() * variants.length)];
+            }
         } else {
             ok = this.comment;
         }
@@ -673,7 +682,7 @@ function getLast(n: number = 1): Citation[] {
 function getById(id: number): Citation | null {
     var max = getCitationSheet().getLastRow();
     if(id <= 1 || id > max) return null;
-    var range = getCitationSheet().getRange(id, 1, 1, 4);
+    var range = getCitationSheet().getRange(id, 1, 1, 6);
     return new Citation(id, range.getRichTextValues()[0]);
 }
 
