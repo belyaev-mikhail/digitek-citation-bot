@@ -142,7 +142,7 @@ function unbanUser(user: string) {
     const bansheet = getBanSheet()
     const banned = bansheet.getRange("A:A").getRichTextValues()
     for (var i = 0; i < banned.length; i++) {
-        if(banned[i][0]?.getText() == user) {
+        if(banned[i][0]!!.getText() == user) {
             bansheet.deleteRow(i + 1)
             break
         }
@@ -153,7 +153,7 @@ function getBanList(): PoorStringSet {
     let bansheet = getBanSheet()
     let banned = bansheet.getRange("A:A").getRichTextValues()
     let result: PoorStringSet = {}
-    for (const b of banned.map(it => it && it[0]?.getText() || "")) {
+    for (const b of banned.map(it => it && it[0]!!.getText() || "")) {
         result[b] = true
     }
     return result
@@ -508,7 +508,7 @@ function sendBanPoll(chatId, user: string, ban: boolean) {
     let payload = JSON.parse(response.getContentText()) as TLResult<Message>
     withLock(() => {
         if (payload.ok) {
-            const poll = payload.result?.poll!!
+            const poll = payload.result!!.poll!!
             setPoll(poll.id, poll, user, chatId, ban);
             let triggerId =
                 ScriptApp
@@ -602,14 +602,14 @@ class Citation {
 
     constructor(n: number, values: Array<gas.Spreadsheet.RichTextValue | null>) {
         this.n = n;
-        this.who = values[0]?.getText() || '';
+        this.who = values[0]!!.getText() || '';
         this.what = richTextToMarkdown(values[1]!!);
         this.plainWhat = values[1]!!.getText();
         this.comment = values[2]!!.getText();
         this.likes = JSON.parse(values[3]!!.getText() || "{}");
         if (values.length > 5
             && values[5]
-            && values[5].getText()) this.source = JSON.parse(values[5]?.getText())
+            && values[5].getText()) this.source = JSON.parse(values[5]!!.getText())
     }
 
     likesCount() {
@@ -655,7 +655,7 @@ class Citation {
     setCommentAndCommit(comment: string): 'done' | 'nope' {
         const ctxRange = getCitationSheet()
             .getRange(this.n, 3, 1, 1)
-        const existing = ctxRange.getRichTextValue()?.getText() || ''
+        const existing = ctxRange.getRichTextValue()!!.getText() || ''
         if (existing.indexOf("#message#") != 0 && existing != `by ${SIG}`) {
             return 'nope'
         }
