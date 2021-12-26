@@ -641,8 +641,8 @@ class Citation {
 
         let ok;
         if (this.comment === `by ${SIG}` || !this.comment) {
-            if (this.source) {
-                ok = `#message#${this.source.messageId}#${this.source.chatId}`
+            if (this.source && this.source.type == 'reply') {
+                ok = `#message#${this.source.replyTo.messageId}#${this.source.replyTo.chatId}`
             } else {
                 ok = variants[Math.floor(Math.random() * variants.length)];
             }
