@@ -280,10 +280,11 @@ function richTextToMarkdown(richText: gas.Spreadsheet.RichTextValue): string {
 
 type TlResponse = { ok: false } | { ok: true, result: Message }
 
-function sendText(id, text: string, likeButton: InlineKeyboardButton | null = null, parse_mode: tl.ParseMode | null = null) {
+function sendText(id, text: string, options: { likeButton?: InlineKeyboardButton, parseMode?: tl.ParseMode } = {}) {
+    const {likeButton, parseMode} = options
     if(text.length > 4096) {
         for(const chunk of text.match(/[^]{1,4096}/g)) {
-            sendText(id, chunk, chunk.length < 4096 ? likeButton : null, parse_mode)
+            sendText(id, chunk, { ...options, likeButton: chunk.length < 4096 ? likeButton : undefined })
         }
         return
     }
@@ -295,8 +296,8 @@ function sendText(id, text: string, likeButton: InlineKeyboardButton | null = nu
             }
     };
 
-    if (parse_mode) {
-        payload.parse_mode = parse_mode
+    if (parseMode) {
+        payload.parse_mode = parseMode
     }
 
     var response = UrlFetchApp.fetch(`${telegramUrl()}/sendMessage`, {
@@ -306,7 +307,7 @@ function sendText(id, text: string, likeButton: InlineKeyboardButton | null = nu
     Logger.log(response.getContentText());
 }
 
-function sendTextOrEntity(id, text: string, parse_mode: tl.ParseMode | null = null, disableNotification: boolean = false) {
+function sendTextOrEntity(id, text: string, options: { parseMode?: tl.ParseMode, disableNotification?: boolean } = {}) {
     const stickerSig = "#sticker#"
     const messageSig = "#message#"
     if(text.indexOf(stickerSig) == 0) {
@@ -316,17 +317,17 @@ function sendTextOrEntity(id, text: string, parse_mode: tl.ParseMode | null = nu
         if (split.length < 2) sendText(id, "Я хз, что это за сообщение")
         else {
             const [messageId, chatId] = split
-            sendReplying(id, messageId, chatId, disableNotification)
+            sendReplying(id, messageId, chatId, options)
         }
-    } else sendText(id, text, null, parse_mode);
+    } else sendText(id, text, options);
 }
 
-function sendReplying(id, messageId, originalChatId, disableNotification: boolean = false) {
+function sendReplying(id, messageId, originalChatId, options: {  disableNotification?: boolean } = {}) {
     const payload: SendMessage = {
         chat_id: `${id}`,
         text: '↑',
         reply_to_message_id: messageId,
-        disable_notification: disableNotification
+        disable_notification: options.disableNotification
     };
     const response = UrlFetchApp.fetch(`${telegramUrl()}/sendMessage`, {
         method: 'post',
@@ -620,7 +621,7 @@ class Citation {
     }
 
     send(id) {
-        sendText(id, `(#${this.n}): ${this.getText()}`, this.getBtnData(), "Markdown");
+        sendText(id, `(#${this.n}): ${this.getText()}`, { likeButton: this.getBtnData(), parseMode: "Markdown" });
     }
     sendContext(id) {
         const variants = [
@@ -640,7 +641,7 @@ class Citation {
         } else {
             ok = this.comment;
         }
-        sendTextOrEntity(id, ok, true)
+        sendTextOrEntity(id, ok, { disableNotification: true })
     }
 
     setCommentAndCommit(comment: string): 'done' | 'nope' {
@@ -712,7 +713,9 @@ function citeOfTheDay() {
         var id = +sheet.getRange(row, 1).getValue();
         if (id < 0) {
             const citation = getRandom();
-            sendText(id, `Цитата дня (#${citation.n}):\n${citation.getText()}`, citation.getBtnData(), "Markdown");
+            sendText(id, `Цитата дня (#${citation.n}):\n${citation.getText()}`,
+                { likeButton: citation.getBtnData(), parseMode: "Markdown" }
+            );
         }
     }
 }
@@ -830,7 +833,7 @@ function tryManual(text: string, id: number, messageId: number, chatId: number) 
     if (text.trim().indexOf("/cite") == 0) {
         const tryout = parseCite(text);
         if (null === tryout) {
-            sendText(id, "Попробуй так: /cite Сообщение (c) Вася", null);
+            sendText(id, "Попробуй так: /cite Сообщение (c) Вася");
             return;
         }
         const {who, what} = tryout;
@@ -864,7 +867,7 @@ function checkCommandArg(arg) {
 
 function getCompanionSlides(): Presentation {
     const slideId = PropertiesService.getScriptProperties().getProperty("slides-id")
-    let slides: Slides
+    let slides: Presentation
     if (!slideId) {
         slides = SlidesApp.create("temp")
         PropertiesService.getScriptProperties().setProperty("slides-id", slides.getId())
@@ -917,12 +920,12 @@ function handleMessage(message: Message) {
     if (text.trim() === getDataSheet().getRange(1, 1).getValue()) {
         if (isAllowed(id)) return;
         getDataSheet().appendRow([id]);
-        sendText(id, "Ок, погнали", null);
+        sendText(id, "Ок, погнали");
         return;
     }
 
     if (!isAllowed(id)) {
-        sendText(id, "Ты кто? Пришли мне данные ячейки A1 из таблицы 'Data' плез", null);
+        sendText(id, "Ты кто? Пришли мне данные ячейки A1 из таблицы 'Data' плез");
         return;
     }
 
@@ -956,12 +959,12 @@ function handleMessage(message: Message) {
         case '/ban':
         case '/unban':
             if (checkBan(message)) {
-                sendText(id, "Ты забанен, чувак, сорян", null);
+                sendText(id, "Ты забанен, чувак, сорян");
                 return;
             }
             const username = args.join(" ").trim()
             if (!checkCommandArg(username)) {
-                sendText(id, "Мамку свою забань, тестировщик хуев", null)
+                sendText(id, "Мамку свою забань, тестировщик хуев")
                 return;
             }
             const ban = command === '/ban'
@@ -983,7 +986,7 @@ function handleMessage(message: Message) {
         case '/context': {
             const citation = parseCitationId(args);
             if (!citation) {
-                sendText(id, "Нет такой цитаты", null);
+                sendText(id, "Нет такой цитаты",);
                 return;
             }
             citation.sendContext(id)
@@ -992,7 +995,7 @@ function handleMessage(message: Message) {
         case '/add_context': {
             const citation = parseCitationId(args);
             if (!citation) {
-                sendText(id, "Нет такой цитаты", null);
+                sendText(id, "Нет такой цитаты");
                 return;
             }
             const ctx = text.replace(command, '').replace(`${citation.n}`, '').trim();
@@ -1010,7 +1013,7 @@ function handleMessage(message: Message) {
         case '/read': {
             const citation = parseCitationId(args);
             if (!citation) {
-                sendText(id, "Нет такой цитаты", null);
+                sendText(id, "Нет такой цитаты",);
                 return;
             }
             citation.send(id);
@@ -1020,15 +1023,15 @@ function handleMessage(message: Message) {
             const min_search = 3;
             const searchText = text.replace('/search', '').trim();
             if (searchText.length < min_search) {
-                sendText(id, "А поконкретнее?", null);
+                sendText(id, "А поконкретнее?");
                 return;
             }
             const citations = searchCitations(searchText);
             if (citations.length == 0) {
-                sendText(id, "Нет таких цитат", null);
+                sendText(id, "Нет таких цитат");
                 return;
             }
-            sendText(id, citations.join("\n\n"), null, "Markdown");
+            sendText(id, citations.join("\n\n"), { parseMode: "Markdown" });
             return;
         }
         case '/pic': {
@@ -1038,7 +1041,7 @@ function handleMessage(message: Message) {
                 const file = (row == row) ? getFileByRow(row) : getFileByDrive(picId);
                 sendPhoto(id, file);
             } catch (ex) {
-                sendText(id, "Нет такого файла", null)
+                sendText(id, "Нет такого файла")
             }
             return;
         }
@@ -1049,7 +1052,7 @@ function handleMessage(message: Message) {
         default:
             if (message.chat.type === "private") {
                 if (checkBan(message)) {
-                    sendText(id, "Ты забанен, чувак, сорян", null);
+                    sendText(id, "Ты забанен, чувак, сорян");
                     return;
                 }
                 if (!message.forward_from && !message.forward_sender_name) {
@@ -1068,11 +1071,11 @@ function handleMessage(message: Message) {
 
             if (text.trim() === "/cite") {
                 if (checkBan(message)) {
-                    sendText(id, "Ты забанен, чувак, сорян", null);
+                    sendText(id, "Ты забанен, чувак, сорян");
                     return;
                 }
                 if (!message.reply_to_message) {
-                    sendText(id, "Я умею цитировать только реплаи, сорян\nМожешь зафорвардить сообщение мне в личку", null);
+                    sendText(id, "Я умею цитировать только реплаи, сорян\nМожешь зафорвардить сообщение мне в личку");
                     return;
                 }
                 const rm = message.reply_to_message;
@@ -1082,7 +1085,7 @@ function handleMessage(message: Message) {
                     if (rm.photo) {
                         handlePhoto(pickPhotoSize(rm.photo), message.chat.id);
                     } else {
-                        sendText(id, "Не", null)
+                        sendText(id, "Не")
                     }
                     return;
                 }
@@ -1176,7 +1179,7 @@ function doPost(e: DoPost) {
             handlePhoto(pickPhotoSize(data.message.photo), data.message.chat.id);
         else if (data.message) handleMessage(data.message);
     } catch (e) {
-        sendText(data.message.chat.id, "Что-то пошло не так:\n" + e.toString(), null);
+        sendText(data.message.chat.id, `Что-то пошло не так:\n${e}`);
     }
     if (data.edited_message) handleEditedMessage(data.edited_message);
     if (data.poll) updatePoll(data.poll)
