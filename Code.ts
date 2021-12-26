@@ -1,12 +1,9 @@
 import gas = GoogleAppsScript;
 import * as tl from "node-telegram-bot-api";
-import {ForwardMessageOptions, InlineKeyboardButton, PhotoSize, Poll, PollOption} from "node-telegram-bot-api";
+import {InlineKeyboardButton, PhotoSize, Poll} from "node-telegram-bot-api";
 import BlobSource = GoogleAppsScript.Base.BlobSource;
 import DoPost = GoogleAppsScript.Events.DoPost;
-import {ok} from "assert";
 import Sheet = GoogleAppsScript.Spreadsheet.Sheet;
-import TriggerSource = GoogleAppsScript.Script.TriggerSource;
-import Slides = GoogleAppsScript.Slides;
 import Presentation = GoogleAppsScript.Slides.Presentation;
 import EmbeddedChart = GoogleAppsScript.Spreadsheet.EmbeddedChart;
 import RichTextValue = GoogleAppsScript.Spreadsheet.RichTextValue;
@@ -93,7 +90,7 @@ function evaluateEditableMessages() {
 }
 
 function getOrEvaluateEditableMessages(): [EditableMessages, boolean] {
-    const cache = CacheService.getDocumentCache();
+    const cache = CacheService.getDocumentCache()!!;
     let emStr = cache.get("editableMessages");
     if (emStr) {
         return [JSON.parse(emStr), false];
@@ -103,7 +100,7 @@ function getOrEvaluateEditableMessages(): [EditableMessages, boolean] {
 }
 
 function putEditableMessagesToCache(em: EditableMessages) {
-    CacheService.getDocumentCache().put("editableMessages", JSON.stringify(em), 21600);
+    CacheService.getDocumentCache()!!.put("editableMessages", JSON.stringify(em), 21600);
 }
 
 function getEditableMessages(): EditableMessages {
@@ -132,7 +129,7 @@ function updateEditableMessagesCache(source: CitationSource, line: number) {
 }
 
 function invalidateEditableMeessagesCache() {
-    const cache = CacheService.getDocumentCache();
+    const cache = CacheService.getDocumentCache()!!;
     cache.remove("editableMessages");
 }
 
@@ -145,7 +142,7 @@ function unbanUser(user: string) {
     const bansheet = getBanSheet()
     const banned = bansheet.getRange("A:A").getRichTextValues()
     for (var i = 0; i < banned.length; i++) {
-        if(banned[i][0].getText() == user) {
+        if(banned[i][0]?.getText() == user) {
             bansheet.deleteRow(i + 1)
             break
         }
@@ -156,7 +153,7 @@ function getBanList(): PoorStringSet {
     let bansheet = getBanSheet()
     let banned = bansheet.getRange("A:A").getRichTextValues()
     let result: PoorStringSet = {}
-    for (const b of banned.map(it => it && it[0].getText() || "")) {
+    for (const b of banned.map(it => it && it[0]?.getText() || "")) {
         result[b] = true
     }
     return result
@@ -235,7 +232,7 @@ function messageToRichText(message: tl.Message): gas.Spreadsheet.RichTextValue {
     // TODO Tg docs says that future fersion of API will support nesting entities.
     // TODO the approach here does not support them
     // TODO underline and strikethrough are not supported by API yet
-    const builder = SpreadsheetApp.newRichTextValue().setText(message.text);
+    const builder = SpreadsheetApp.newRichTextValue().setText(message.text || "");
 
     for (let entity of message.entities || []) {
         switch (entity.type) {
@@ -283,7 +280,7 @@ type TlResponse = { ok: false } | { ok: true, result: Message }
 function sendText(id, text: string, options: { likeButton?: InlineKeyboardButton, parseMode?: tl.ParseMode } = {}) {
     const {likeButton, parseMode} = options
     if(text.length > 4096) {
-        for(const chunk of text.match(/[^]{1,4096}/g)) {
+        for(const chunk of text.match(/[^]{1,4096}/g) || []) {
             sendText(id, chunk, { ...options, likeButton: chunk.length < 4096 ? likeButton : undefined })
         }
         return
@@ -386,7 +383,7 @@ function answerCallbackQuery(id: string, text: string) {
     Logger.log(response.getContentText());
 }
 
-function editMessageReplyMarkup(chat_id: number, message_id: number, newButton: InlineKeyboardButton | null) {
+function editMessageReplyMarkup(chat_id: number, message_id: number, newButton: InlineKeyboardButton) {
     const payload: tl.EditMessageCaptionOptions = {
         chat_id: "" + chat_id,
         message_id: message_id,
@@ -415,15 +412,15 @@ function sendSticker(id, file_id) {
 type CachedPoll = Poll & { data: any, chat_id: number, ban: boolean }
 
 function getPoll(id): CachedPoll | null {
-    let cache = CacheService.getDocumentCache().get("Polls")
+    let cache = CacheService.getDocumentCache()!!.get("Polls")
     if (!cache) return null
     let row = JSON.parse(cache)[id]
     if (!row) return null
     return row as CachedPoll
 }
 
-function setPoll(id, poll: Poll, data?: any, chat_id?: number, ban: boolean = null): CachedPoll {
-    let cache = CacheService.getDocumentCache().get("Polls")
+function setPoll(id, poll: Poll, data?: any, chat_id?: number, ban?: boolean): CachedPoll {
+    let cache = CacheService.getDocumentCache()!!.get("Polls")
     if (!cache) cache = "{}"
     let parsedCache = JSON.parse(cache)
     let existingPoll = parsedCache[id] as CachedPoll
@@ -434,7 +431,7 @@ function setPoll(id, poll: Poll, data?: any, chat_id?: number, ban: boolean = nu
         ban: ban != null ? ban : existingPoll.ban
     }
     parsedCache[id] = existingPoll
-    CacheService.getDocumentCache().put("Polls", JSON.stringify(parsedCache), 1200)
+    CacheService.getDocumentCache()!!.put("Polls", JSON.stringify(parsedCache), 1200)
     return existingPoll
 }
 
@@ -458,8 +455,8 @@ function handleQuizTrigger(e: gas.Events.AppsScriptEvent) {
             }
             let pollId = PropertiesService.getScriptProperties().getProperty(e.triggerUid)
             PropertiesService.getScriptProperties().deleteProperty(e.triggerUid)
-            let poll = getPoll(pollId)
-            const citation = getById(poll.data)
+            let poll = getPoll(pollId)!!
+            const citation = getById(poll.data)!!
             sendText(poll.chat_id, `Викторина окончена. Это была цитата #${citation.n}. Автор - ${citation.who}`)
         })
     } catch (ex) {
@@ -478,7 +475,7 @@ function handlePollTrigger(e: gas.Events.AppsScriptEvent) {
             }
             let pollId = PropertiesService.getScriptProperties().getProperty(e.triggerUid)
             PropertiesService.getScriptProperties().deleteProperty(e.triggerUid)
-            let poll = getPoll(pollId)
+            let poll = getPoll(pollId)!!
             debug(poll)
             if (checkPollResult(poll)) {
                 if (poll.ban === true) {
@@ -511,12 +508,13 @@ function sendBanPoll(chatId, user: string, ban: boolean) {
     let payload = JSON.parse(response.getContentText()) as TLResult<Message>
     withLock(() => {
         if (payload.ok) {
-            setPoll(payload.result.poll.id, payload.result.poll, user, chatId, ban);
+            const poll = payload.result?.poll!!
+            setPoll(poll.id, poll, user, chatId, ban);
             let triggerId =
                 ScriptApp
                     .newTrigger(handlePollTrigger.name).timeBased().after(330000)
                     .create().getUniqueId()
-            PropertiesService.getScriptProperties().setProperty(triggerId, payload.result.poll.id)
+            PropertiesService.getScriptProperties().setProperty(triggerId, poll.id)
         }
     })
 }
@@ -530,7 +528,7 @@ function getAllAuthors() : string[] {
     return Array.from(authors.values());
 }
 
-function getRandomAuthors(n: number, withAuthor = null) {
+function getRandomAuthors(n: number, withAuthor: string | null = null) {
     const allAuthors = getAllAuthors()
     let randomAuthors = new Set<string>();
     if (withAuthor) {
@@ -573,12 +571,13 @@ function sendCitationQuiz(chatId) {
     let payload = JSON.parse(response.getContentText()) as TLResult<Message>
     withLock(() => {
         if (payload.ok) {
-            setPoll(payload.result.poll.id, payload.result.poll, citation.n, chatId, false);
+            const poll = payload.result!!.poll!!
+            setPoll(poll.id, poll, citation.n, chatId, false);
             let triggerId =
                 ScriptApp
                     .newTrigger(handleQuizTrigger.name).timeBased().after(QUIZ_TIMEOUT_SEC * 1000)
                     .create().getUniqueId()
-            PropertiesService.getScriptProperties().setProperty(triggerId, payload.result.poll.id)
+            PropertiesService.getScriptProperties().setProperty(triggerId, poll.id)
         }
     })
 }
@@ -599,13 +598,13 @@ class Citation {
     plainWhat: string;
     comment: string;
     likes: object;
-    constructor(n: number, values: Array<gas.Spreadsheet.RichTextValue>) {
+    constructor(n: number, values: Array<gas.Spreadsheet.RichTextValue | null>) {
         this.n = n;
-        this.who = values[0].getText();
-        this.what = richTextToMarkdown(values[1]);
-        this.plainWhat = values[1].getText();
-        this.comment = values[2].getText();
-        this.likes = JSON.parse(values[3].getText() || "{}");
+        this.who = values[0]?.getText() || '';
+        this.what = richTextToMarkdown(values[1]!!);
+        this.plainWhat = values[1]!!.getText();
+        this.comment = values[2]!!.getText();
+        this.likes = JSON.parse(values[3]!!.getText() || "{}");
     }
 
     likesCount() {
@@ -647,7 +646,7 @@ class Citation {
     setCommentAndCommit(comment: string): 'done' | 'nope' {
         const ctxRange = getCitationSheet()
             .getRange(this.n, 3, 1, 1)
-        const existing = ctxRange.getRichTextValue().getText()
+        const existing = ctxRange.getRichTextValue()?.getText() || ''
         if (existing.indexOf("#message#") != 0 && existing != `by ${SIG}`) {
             return 'nope'
         }
@@ -660,7 +659,7 @@ function getRandom(): Citation {
     var max = getCitationSheet().getLastRow() - 1;
     var random = Math.floor(Math.random() * max) + 2;
     var range = getCitationSheet().getRange(random, 1, 1, 4);
-    return new Citation(random, range.getRichTextValues()[0]);
+    return new Citation(random, range.getRichTextValues()[0] as RichTextValue[]);
 }
 
 function getLast(n: number = 1): Citation[] {
@@ -729,11 +728,11 @@ interface TlUpdateFix {
 }
 
 type TlUpdate = tl.Update & TlUpdateFix;
-type Message = TlUpdate['message']
+type Message = TlUpdate['message'] & {}
 
 function getForwardedName(m: Message): string | null {
     if(m.forward_from) {
-        return m.forward_from.first_name || m.forward_from.last_name || m.forward_from.username
+        return m.forward_from.first_name || m.forward_from.last_name || m.forward_from.username || null
     }
     if(m.forward_sender_name) {
         return m.forward_sender_name.split(" ")[0]
@@ -803,7 +802,7 @@ function parseCite(text: string): ParsedCite | null {
 }
 
 function newCitation(name: string, ctext: gas.Spreadsheet.RichTextValue, src: CitationSource) {
-    let origMessageId = null
+    let origMessageId: number | null = null
     switch (src.type) {
         case "forward":
             origMessageId = src.messageId
@@ -850,14 +849,23 @@ function tryManual(text: string, id: number, messageId: number, chatId: number) 
 type Paranoid<Obj> =
     Obj extends {}? { [K in keyof Obj]?: Paranoid<Obj[K]> } : Obj
 
+
+
 function checkBan(message: Paranoid<Message>): boolean {
     const banlist = getBanList()
+
+    function isBanned(key: string | number | undefined | null): boolean {
+        return key && (key.toString() in banlist) || false
+    }
+
     try {
-        return message.chat.id.toString() in banlist
-            || message.from.id.toString() in banlist
-            || message.from.first_name in banlist
-            || message.from.username in banlist
-            || ("@" + message.from.username) in banlist;
+        const chatId = message?.chat?.id?.toString()
+        const from = message.from!!
+        return isBanned(chatId)
+            || isBanned(from?.id)
+            || isBanned(from?.first_name)
+            || isBanned(from?.username)
+            || isBanned("@" + from?.username)
     } catch (e) { return false }
 }
 
@@ -1078,8 +1086,8 @@ function handleMessage(message: Message) {
                     sendText(id, "Я умею цитировать только реплаи, сорян\nМожешь зафорвардить сообщение мне в личку");
                     return;
                 }
-                const rm = message.reply_to_message;
-                const name = getForwardedName(rm) || rm.from.first_name || rm.from.username;
+                const rm = message.reply_to_message!!;
+                const name = getForwardedName(rm) || rm?.from?.first_name || rm?.from?.username || "somebody";
                 const text = rm.text;
                 if (!text) {
                     if (rm.photo) {
@@ -1116,7 +1124,7 @@ function handleEditedMessage(editedMessage: Message) {
 
         if (!row)
             return;
-        let text = editedMessage.text.replace(SIG, "");
+        let text = editedMessage.text!!.replace(SIG, "");
         let tryout = parseCite(text);
 
         if (null === tryout) {
@@ -1128,12 +1136,12 @@ function handleEditedMessage(editedMessage: Message) {
 }
 
 function handleCallback(callback_query: tl.CallbackQuery) {
-    const citationId = parseInt(callback_query.data);
+    const citationId = parseInt(callback_query.data!!);
     if(citationId != citationId) return;
     const cite = getById(citationId);
     if(cite == null) return;
 
-    let likes: object;
+    let likes: object = {};
     let like: any | undefined;
 
     withLock(() => {
@@ -1147,7 +1155,7 @@ function handleCallback(callback_query: tl.CallbackQuery) {
         range.setValue(JSON.stringify(likes));
     });
 
-    editMessageReplyMarkup(callback_query.message.chat.id, callback_query.message.message_id, {
+    editMessageReplyMarkup(callback_query.message!!.chat.id, callback_query.message!!.message_id, {
         text: Object.keys(likes).length + " ❤",
         callback_data: `${citationId}`
     });
@@ -1157,7 +1165,7 @@ function handleCallback(callback_query: tl.CallbackQuery) {
 function handlePhoto(photo: PhotoSize, id: number) {
     const [row, driveId] = saveFile(photo.file_id);
     success(id);
-    sendText(id, `Картинка номер ${row}, id файла ${driveId}`, null);
+    sendText(id, `Картинка номер ${row}, id файла ${driveId}`);
 }
 
 function pickPhotoSize(photos: PhotoSize[]): PhotoSize {
@@ -1179,7 +1187,8 @@ function doPost(e: DoPost) {
             handlePhoto(pickPhotoSize(data.message.photo), data.message.chat.id);
         else if (data.message) handleMessage(data.message);
     } catch (e) {
-        sendText(data.message.chat.id, `Что-то пошло не так:\n${e}`);
+        if (data.message)
+            sendText(data.message.chat.id, `Что-то пошло не так:\n${e}`);
     }
     if (data.edited_message) handleEditedMessage(data.edited_message);
     if (data.poll) updatePoll(data.poll)
@@ -1201,7 +1210,7 @@ function saveFile(file_id: string): [number, string] {
     const url = `${telegramUrl()}/getFile?file_id=${file_id}`;
     const response = UrlFetchApp.fetch(url);
     const fileInfo = JSON.parse(response.getContentText()) as TLResult<tl.File>;
-    if(!fileInfo.ok) return;
+    if (!fileInfo.ok) throw Error("Could not save file")
     const fileUrl = `${telegramFileUrl()}/${fileInfo.result.file_path}`;
     const folders = DriveApp.getFoldersByName("citations");
     const folder = folders.hasNext()? folders.next() : DriveApp.createFolder("citations");
