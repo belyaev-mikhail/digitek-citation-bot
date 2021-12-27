@@ -518,7 +518,7 @@ function sendBanPoll(chatId, user: string, ban: boolean) {
 function getAllAuthors() : string[] {
     const sheet = getCitationSheet()
     let max = sheet.getLastRow() - 1;
-    let values = sheet.getRange(1, 1, max).getValues();
+    let values = sheet.getRange(2, 1, max - 1).getValues();
     let authors = new Set<string>();
     values.map((value: string[]) => authors.add(value[0]))
     return Array.from(authors.values());
@@ -536,13 +536,10 @@ function getRandomAuthors(n: number, withAuthor: string | null = null) {
         randomAuthors.add(author)
     }
     let result = Array.from(randomAuthors.values())
-    // Shuffle
-    let currentIndex = result.length,  randomIndex;
-    while (currentIndex != 0) {
-        randomIndex = Math.floor(Math.random() * currentIndex);
-        currentIndex--;
-        // swap
-        [result[currentIndex], result[randomIndex]] = [result[randomIndex], result[currentIndex]];
+    if (withAuthor) {
+        // shuffle fixed author
+        let randomIndex = Math.floor(Math.random() * result.length);
+        [result[0], result[randomIndex]] = [result[randomIndex], result[0]];
     }
     return result;
 }
