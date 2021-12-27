@@ -8,8 +8,8 @@
   },
   "private": true,
   "devDependencies": {
-    "@types/google-apps-script": "^0.0.62",
-    "@types/node-telegram-bot-api": "^0.51.1"
+    "@types/google-apps-script": "^1.0.41",
+    "@types/node-telegram-bot-api": "^0.53.3"
   },
   "dependencies": {
     "@google/clasp": "^2.4.1"

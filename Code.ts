@@ -7,6 +7,7 @@ import Sheet = GoogleAppsScript.Spreadsheet.Sheet;
 import Presentation = GoogleAppsScript.Slides.Presentation;
 import EmbeddedChart = GoogleAppsScript.Spreadsheet.EmbeddedChart;
 import RichTextValue = GoogleAppsScript.Spreadsheet.RichTextValue;
+import {Stream} from "stream";
 
 declare var BOT_TOKEN;
 declare var SCRIPT_ID;
@@ -173,15 +174,50 @@ function getMe() {
     Logger.log(response.getContentText());
 }
 
+type TlUpdate = {
+    message: Message
+    edited_message: Message
+    channel_post: Message
+    edited_channel_post: Message
+    inline_query: tl.InlineQuery
+    chosen_inline_result: tl.ChosenInlineResult
+    callback_query: tl.CallbackQuery
+    shipping_query: tl.ShippingQuery
+    pre_checkout_query: tl.PreCheckoutQuery
+    poll: Poll
+    poll_answer: tl.PollAnswer
+    my_chat_member: tl.ChatMemberUpdated
+    chat_member: tl.ChatMemberUpdated
+    chat_join_request: object /* tl.ChatJoinRequest */
+}
+type SetWebHookOptions = {
+    url?: string | undefined;
+    certificate?: string | Stream | undefined;
+    max_connections?: number | undefined;
+    allowed_updates?: (keyof TlUpdate)[] | undefined;
+}
+
 function unsetWebhook() {
-    var url = `${telegramUrl()}/setWebhook?url=`;
-    var response = UrlFetchApp.fetch(url);
+    const url = `${telegramUrl()}/setWebhook?url=`;
+    const payload: SetWebHookOptions = {
+        allowed_updates: ["message", "edited_message", "inline_query", "callback_query", "poll"]
+    }
+    const response = UrlFetchApp.fetch(url, {
+        method: "post",
+        payload
+    });
     Logger.log(response.getContentText());
 }
 
 function setWebhook() {
     var url = `${telegramUrl()}/setWebhook?url=${webAppUrl()}`;
     var response = UrlFetchApp.fetch(url);
+    Logger.log(response.getContentText());
+}
+
+function webhookInfo() {
+    const url = `${telegramUrl()}/getWebhookInfo`;
+    const response = UrlFetchApp.fetch(url);
     Logger.log(response.getContentText());
 }
 
@@ -729,8 +765,7 @@ interface TlUpdateFix {
     }
 }
 
-type TlUpdate = tl.Update & TlUpdateFix;
-type Message = TlUpdate['message'] & {}
+type Message = tl.Update['message'] & {}
 
 function getForwardedName(m: Message): string | null {
     if(m.forward_from) {
