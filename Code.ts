@@ -199,6 +199,12 @@ type SetWebHookOptions = {
 
 function unsetWebhook() {
     const url = `${telegramUrl()}/setWebhook?url=`;
+    var response = UrlFetchApp.fetch(url);
+    Logger.log(response.getContentText());
+}
+
+function setWebhook() {
+    var url = `${telegramUrl()}/setWebhook?url=${webAppUrl()}`;
     const payload: SetWebHookOptions = {
         allowed_updates: ["message", "edited_message", "inline_query", "callback_query", "poll"]
     }
@@ -206,12 +212,6 @@ function unsetWebhook() {
         method: "post",
         payload
     });
-    Logger.log(response.getContentText());
-}
-
-function setWebhook() {
-    var url = `${telegramUrl()}/setWebhook?url=${webAppUrl()}`;
-    var response = UrlFetchApp.fetch(url);
     Logger.log(response.getContentText());
 }
 
