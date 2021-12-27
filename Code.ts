@@ -187,7 +187,8 @@ function setWebhook() {
 
 type SendMessage = tl.SendMessageOptions & {
     chat_id: string | number,
-    text?: string
+    text?: string,
+    reply_to_message_id?: string | number
 }
 
 type ForwardMessage = tl.ForwardMessageOptions & {
@@ -277,7 +278,9 @@ function richTextToMarkdown(richText: gas.Spreadsheet.RichTextValue): string {
 
 type TlResponse = { ok: false } | { ok: true, result: Message }
 
-function sendText(id, text: string, options: { likeButton?: InlineKeyboardButton, parseMode?: tl.ParseMode } = {}) {
+function sendText(id, text: string,
+                  options: { likeButton?: InlineKeyboardButton, parseMode?: tl.ParseMode,
+                      replyTo?: number } = {}) {
     const {likeButton, parseMode} = options
     if(text.length > 4096) {
         for(const chunk of text.match(/[^]{1,4096}/g) || []) {
@@ -288,6 +291,7 @@ function sendText(id, text: string, options: { likeButton?: InlineKeyboardButton
     const payload: SendMessage = {
             chat_id: `${id}`,
             text: text,
+            reply_to_message_id: options.replyTo,
             reply_markup: likeButton && {
                 inline_keyboard: [[ likeButton ]]
             }
@@ -399,7 +403,7 @@ function sendSticker(id, file_id) {
     Logger.log(response.getContentText());
 }
 
-type CachedPoll = Poll & { data: any, chat_id: number, ban: boolean }
+type CachedPoll = Poll & { data: any, chat_id: number, message_id?: number, ban: boolean }
 
 function getPoll(id): CachedPoll | null {
     let cache = CacheService.getDocumentCache()!!.get("Polls")
@@ -409,7 +413,7 @@ function getPoll(id): CachedPoll | null {
     return row as CachedPoll
 }
 
-function setPoll(id, poll: Poll, data?: any, chat_id?: number, ban?: boolean): CachedPoll {
+function setPoll(id, poll: Poll, data?: any, chat_id?: number, message_id?: number, ban?: boolean): CachedPoll {
     let cache = CacheService.getDocumentCache()!!.get("Polls")
     if (!cache) cache = "{}"
     let parsedCache = JSON.parse(cache)
@@ -418,6 +422,7 @@ function setPoll(id, poll: Poll, data?: any, chat_id?: number, ban?: boolean): C
         ...poll,
         data: data || existingPoll.data,
         chat_id: chat_id || existingPoll.chat_id,
+        message_id: message_id || existingPoll.message_id,
         ban: ban != null ? ban : existingPoll.ban
     }
     parsedCache[id] = existingPoll
@@ -447,7 +452,8 @@ function handleQuizTrigger(e: gas.Events.AppsScriptEvent) {
             PropertiesService.getScriptProperties().deleteProperty(e.triggerUid)
             let poll = getPoll(pollId)!!
             const citation = getById(poll.data)!!
-            sendText(poll.chat_id, `Викторина окончена. Это была цитата #${citation.n}. Автор - ${citation.who}`)
+            sendText(poll.chat_id, `Викторина окончена. Это была цитата #${citation.n}. Автор - ${citation.who}`,
+                { replyTo: poll.message_id })
         })
     } catch (ex) {
         debug(ex)
@@ -499,7 +505,7 @@ function sendBanPoll(chatId, user: string, ban: boolean) {
     withLock(() => {
         if (payload.ok) {
             const poll = payload.result!!.poll!!
-            setPoll(poll.id, poll, user, chatId, ban);
+            setPoll(poll.id, poll, user, chatId, payload.result?.message_id, ban);
             let triggerId =
                 ScriptApp
                     .newTrigger(handlePollTrigger.name).timeBased().after(330000)
@@ -562,7 +568,7 @@ function sendCitationQuiz(chatId) {
     withLock(() => {
         if (payload.ok) {
             const poll = payload.result!!.poll!!
-            setPoll(poll.id, poll, citation.n, chatId, false);
+            setPoll(poll.id, poll, citation.n, chatId, payload.result?.message_id, false);
             let triggerId =
                 ScriptApp
                     .newTrigger(handleQuizTrigger.name).timeBased().after(QUIZ_TIMEOUT_SEC * 1000)
