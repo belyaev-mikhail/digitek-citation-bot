@@ -169,8 +169,7 @@ function rotateDebugSheet() {
 }
 
 function getMe() {
-    var url = `${telegramUrl()}/getMe`;
-    var response = UrlFetchApp.fetch(url);
+    const response = fetchTelegram("getMe")
     Logger.log(response.getContentText());
 }
 
@@ -197,27 +196,32 @@ type SetWebHookOptions = {
     allowed_updates?: (keyof TlUpdate)[] | undefined;
 }
 
+function fetchTelegram <P extends object>(api: keyof tl, payload?: P): gas.URL_Fetch.HTTPResponse {
+    const url = `${telegramUrl()}/${api}`;
+    const method = (payload && payload != {}) ? "post" : "get"
+    const response = UrlFetchApp.fetch(url, {
+        method: method,
+        payload: payload && serialize(payload)
+    });
+    return response
+}
+
 function unsetWebhook() {
-    const url = `${telegramUrl()}/setWebhook?url=`;
-    var response = UrlFetchApp.fetch(url);
+    const response = fetchTelegram("setWebHook")
     Logger.log(response.getContentText());
 }
 
 function setWebhook() {
-    var url = `${telegramUrl()}/setWebhook?url=${webAppUrl()}`;
     const payload: SetWebHookOptions = {
+        url: webAppUrl(),
         allowed_updates: ["message", "edited_message", "inline_query", "callback_query", "poll"]
     }
-    const response = UrlFetchApp.fetch(url, {
-        method: "post",
-        payload
-    });
+    const response = fetchTelegram("setWebHook", payload)
     Logger.log(response.getContentText());
 }
 
 function webhookInfo() {
-    const url = `${telegramUrl()}/getWebhookInfo`;
-    const response = UrlFetchApp.fetch(url);
+    const response = fetchTelegram("getWebHookInfo")
     Logger.log(response.getContentText());
 }
 
@@ -337,10 +341,7 @@ function sendText(id, text: string,
         payload.parse_mode = parseMode
     }
 
-    var response = UrlFetchApp.fetch(`${telegramUrl()}/sendMessage`, {
-        method: 'post',
-        payload: serialize(payload)
-    });
+    const response = fetchTelegram("sendMessage", payload)
     Logger.log(response.getContentText());
 }
 
@@ -380,24 +381,12 @@ function sendMessageReference(id, messageId, originalChatId,
 }
 
 function sendPhoto(id, file: BlobSource) {
-    const response = UrlFetchApp.fetch(`${telegramUrl()}/sendPhoto`, {
-        method: 'post',
-        payload: serialize({
-            chat_id: `${id}`,
-            photo: file
-        })
-    });
+    const response = fetchTelegram("sendPhoto", { chat_id: `${id}`, photo: file})
     Logger.log(response.getContentText());
 }
 
 function sendAudio(id, file: BlobSource) {
-    const response = UrlFetchApp.fetch(`${telegramUrl()}/sendAudio`, {
-        method: 'post',
-        payload: serialize({
-            chat_id: `${id}`,
-            audio: file
-        })
-    });
+    const response = fetchTelegram("sendAudio",{ chat_id: `${id}`, audio: file })
     Logger.log(response.getContentText());
 }
 
@@ -406,10 +395,7 @@ function answerCallbackQuery(id: string, text: string) {
         callback_query_id: id,
         text: text
     };
-    var response = UrlFetchApp.fetch(`${telegramUrl()}/answerCallbackQuery`, {
-        method: 'post',
-        payload: serialize(payload)
-    });
+    const response = fetchTelegram("answerCallbackQuery", payload)
     Logger.log(response.getContentText());
 }
 
@@ -421,21 +407,12 @@ function editMessageReplyMarkup(chat_id: number, message_id: number, newButton: 
             inline_keyboard: [[ newButton ]]
         }
     };
-    var response = UrlFetchApp.fetch(`${telegramUrl()}/editMessageReplyMarkup`, {
-        method: 'post',
-        payload: serialize(payload)
-    });
+    const response = fetchTelegram("editMessageReplyMarkup", payload)
     Logger.log(response.getContentText());
 }
 
 function sendSticker(id, file_id) {
-    var response = UrlFetchApp.fetch(`${telegramUrl()}/sendSticker`, {
-        method: 'post',
-        payload: {
-            chat_id: "" + id,
-            sticker: file_id
-        }
-    });
+    const response = fetchTelegram("sendSticker", { chat_id: `${id}`, sticker: file_id })
     Logger.log(response.getContentText());
 }
 
@@ -527,15 +504,12 @@ function handlePollTrigger(e: gas.Events.AppsScriptEvent) {
 }
 
 function sendBanPoll(chatId, user: string, ban: boolean) {
-    const response = UrlFetchApp.fetch(`${telegramUrl()}/sendPoll`, {
-        method: 'post',
-        payload: serialize({
-            chat_id: "" + chatId,
-            question: ban ? `Ну чё, баним ${user}?`: `Ну чё, амнистируем ${user}?`,
-            options: ["Jah", "Nein"],
-            open_period: 300
-        })
-    });
+    const response = fetchTelegram("sendPoll", {
+        chat_id: "" + chatId,
+        question: ban ? `Ну чё, баним ${user}?`: `Ну чё, амнистируем ${user}?`,
+        options: ["Jah", "Nein"],
+        open_period: 300
+    })
 
     let payload = JSON.parse(response.getContentText()) as TLResult<Message>
     withLock(() => {
@@ -585,18 +559,15 @@ function sendCitationQuiz(chatId) {
     const authors = getRandomAuthors(10, citation.who)
     const correct_id = authors.indexOf(citation.who)
     const QUIZ_TIMEOUT_SEC = 30;
-    const response = UrlFetchApp.fetch(`${telegramUrl()}/sendPoll`, {
-        method: 'post',
-        payload: serialize({
-            chat_id: "" + chatId,
-            type: "quiz",
-            question: `Угадай автора цитаты:\n"${citation.what}"`,
-            options: authors,
-            correct_option_id: correct_id,
-            open_period: QUIZ_TIMEOUT_SEC,
-            is_anonymous: false
-        })
-    });
+    const response = fetchTelegram("sendPoll", {
+        chat_id: `${chatId}`,
+        type: "quiz",
+        question: `Угадай автора цитаты:\n"${citation.what}"`,
+        options: authors,
+        correct_option_id: correct_id,
+        open_period: QUIZ_TIMEOUT_SEC,
+        is_anonymous: false
+    })
     let payload = JSON.parse(response.getContentText()) as TLResult<Message>
     withLock(() => {
         if (payload.ok) {
