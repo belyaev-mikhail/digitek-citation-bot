@@ -304,7 +304,9 @@ function sendText(id, text: string, options: { likeButton?: InlineKeyboardButton
     Logger.log(response.getContentText());
 }
 
-function sendTextOrEntity(id, text: string, options: { parseMode?: tl.ParseMode, disableNotification?: boolean } = {}) {
+function sendTextOrEntity(id, text: string,
+                          options: { parseMode?: tl.ParseMode, disableNotification?: boolean,
+                              prefix?: string, suffix?: string } = {}) {
     const stickerSig = "#sticker#"
     const messageSig = "#message#"
     if(text.indexOf(stickerSig) == 0) {
@@ -314,16 +316,16 @@ function sendTextOrEntity(id, text: string, options: { parseMode?: tl.ParseMode,
         if (split.length < 2) sendText(id, "Я хз, что это за сообщение")
         else {
             const [messageId, chatId] = split
-            sendReplying(id, messageId, chatId, options)
+            sendMessageReference(id, messageId, chatId, options)
         }
     } else sendText(id, text, options);
 }
 
-function sendReplying(id, messageId, originalChatId, options: {  disableNotification?: boolean } = {}) {
+function sendMessageReference(id, messageId, originalChatId,
+                              options: { disableNotification?: boolean, prefix?: string, suffix?: string } = {}) {
     const payload: SendMessage = {
         chat_id: `${id}`,
-        text: '↑',
-        reply_to_message_id: messageId,
+        text: `${options.prefix || ''}https://t.me/c/${originalChatId.toString().slice(4)}/${messageId}${options.suffix || ''}`,
         disable_notification: options.disableNotification
     };
     const response = UrlFetchApp.fetch(`${telegramUrl()}/sendMessage`, {
@@ -332,19 +334,7 @@ function sendReplying(id, messageId, originalChatId, options: {  disableNotifica
         muteHttpExceptions: true
     });
     if (response.getResponseCode() != 200) {
-        const payload: SendMessage = {
-            chat_id: `${id}`,
-            text: `https://t.me/c/${originalChatId.toString().slice(4)}/${messageId}`,
-            disable_notification: options.disableNotification
-        };
-        const response = UrlFetchApp.fetch(`${telegramUrl()}/sendMessage`, {
-            method: 'post',
-            payload: serialize(payload),
-            muteHttpExceptions: true
-        });
-        if (response.getResponseCode() != 200) {
-            sendText(id, "Там сообщение из другого чата, я не могу его сюда отправить, сорри")
-        }
+        sendText(id, "Почему-то это сообщение я переслать не могу =(")
     }
     Logger.log(response.getContentText());
 }
