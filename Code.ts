@@ -512,7 +512,7 @@ function sendBanPoll(chatId, user: string, ban: boolean) {
 function getAllAuthors() : string[] {
     const sheet = getCitationSheet()
     let max = sheet.getLastRow() - 1;
-    let values = sheet.getRange(1, 1, max).getValues();
+    let values = sheet.getRange(2, 1, max - 1).getValues();
     let authors = new Set<string>();
     values.map((value: string[]) => authors.add(value[0]))
     return Array.from(authors.values());
