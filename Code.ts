@@ -530,13 +530,10 @@ function getRandomAuthors(n: number, withAuthor: string | null = null) {
         randomAuthors.add(author)
     }
     let result = Array.from(randomAuthors.values())
-    // Shuffle
-    let currentIndex = result.length,  randomIndex;
-    while (currentIndex != 0) {
-        randomIndex = Math.floor(Math.random() * currentIndex);
-        currentIndex--;
-        // swap
-        [result[currentIndex], result[randomIndex]] = [result[randomIndex], result[currentIndex]];
+    if (withAuthor) {
+        // shuffle fixed author
+        let randomIndex = Math.floor(Math.random() * result.length);
+        [result[0], result[randomIndex]] = [result[randomIndex], result[0]];
     }
     return result;
 }
