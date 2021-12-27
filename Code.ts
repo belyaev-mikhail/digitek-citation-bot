@@ -332,12 +332,12 @@ function sendReplying(id, messageId, originalChatId, options: {  disableNotifica
         muteHttpExceptions: true
     });
     if (response.getResponseCode() != 200) {
-        const payload: ForwardMessage = {
+        const payload: SendMessage = {
             chat_id: `${id}`,
-            from_chat_id: `${originalChatId}`,
-            message_id: `${messageId}`,
+            text: `https://t.me/c/${originalChatId.toString().slice(4)}/${messageId}`,
+            disable_notification: options.disableNotification
         };
-        const response = UrlFetchApp.fetch(`${telegramUrl()}/forwardMessage`, {
+        const response = UrlFetchApp.fetch(`${telegramUrl()}/sendMessage`, {
             method: 'post',
             payload: serialize(payload),
             muteHttpExceptions: true
