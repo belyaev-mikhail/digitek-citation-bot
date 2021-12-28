@@ -1,6 +1,6 @@
 import gas = GoogleAppsScript;
 import * as tl from "node-telegram-bot-api";
-import {InlineKeyboardButton, PhotoSize, Poll} from "node-telegram-bot-api";
+import {InlineKeyboardButton, PhotoSize, PollAnswer, PollOption} from "node-telegram-bot-api";
 import BlobSource = GoogleAppsScript.Base.BlobSource;
 import DoPost = GoogleAppsScript.Events.DoPost;
 import Sheet = GoogleAppsScript.Spreadsheet.Sheet;
@@ -214,7 +214,7 @@ function unsetWebhook() {
 function setWebhook() {
     const payload: SetWebHookOptions = {
         url: webAppUrl(),
-        allowed_updates: ["message", "edited_message", "inline_query", "callback_query", "poll"]
+        allowed_updates: ["message", "edited_message", "inline_query", "callback_query", "poll", "poll_answer"]
     }
     const response = fetchTelegram("setWebHook", payload)
     Logger.log(response.getContentText());
@@ -241,10 +241,11 @@ function serialize(payload: object) {
     const result = {};
     for(const key in payload) if(payload.hasOwnProperty(key)) {
         const value = payload[key];
-        if(value != null && value.getBlob) result[key] = value.getBlob();
-        else if (value != null && value.copyBlob) result[key] = value; // some blobs are not blobSources
-        else if(value != null && typeof value === 'object') result[key] = JSON.stringify(value);
-        else if(value != null && Array.isArray(value)) result[key] = JSON.stringify(value);
+        if (value == null) continue;
+        if (value.getBlob) result[key] = value.getBlob();
+        else if (value.copyBlob) result[key] = value; // some blobs are not blobSources
+        else if (typeof value === 'object') result[key] = JSON.stringify(value);
+        else if (Array.isArray(value)) result[key] = JSON.stringify(value);
         else result[key] = value;
     }
     return result
@@ -416,6 +417,22 @@ function sendSticker(id, file_id) {
     Logger.log(response.getContentText());
 }
 
+type Poll = {
+    id:	string
+    question: string
+    options: Array<PollOption>
+    total_voter_count: number
+    is_closed: boolean
+    is_anonymous: boolean
+    type: tl.PollType
+    allows_multiple_answers: boolean
+    correct_option_id?:	number,
+    explanation?: string
+    explanation_entities?: Array<tl.MessageEntity>
+    open_period?: number
+    close_date?: number
+}
+
 type CachedPoll = Poll & { data: any, chat_id: number, message_id?: number, ban: boolean }
 
 function getPoll(id): CachedPoll | null {
@@ -441,6 +458,54 @@ function setPoll(id, poll: Poll, data?: any, chat_id?: number, message_id?: numb
     parsedCache[id] = existingPoll
     CacheService.getDocumentCache()!!.put("Polls", JSON.stringify(parsedCache), 1200)
     return existingPoll
+}
+
+type QuizLeaderboard = { [userId: string]: number }
+function loadLeaderboard(): QuizLeaderboard {
+    return JSON.parse(getDataSheet().getRange("L1")?.getValue()?.toString() || '{}')
+}
+
+function storeLeaderboard(lb: QuizLeaderboard) {
+    getDataSheet().getRange("L1").setValue(JSON.stringify(lb))
+}
+
+function handleAnswer(pollAnswer: PollAnswer) {
+    const poll = getPoll(pollAnswer.poll_id)
+    if (!poll) return
+    if (poll.correct_option_id == null) return;
+    if (poll.type != 'quiz') return;
+
+    if (pollAnswer.option_ids.indexOf(poll.correct_option_id) == -1) return;
+
+    withLock(() => {
+        const lb = loadLeaderboard()
+        lb[pollAnswer.user.id] = (lb[pollAnswer.user.id] || 0) + 1
+        storeLeaderboard(lb)
+    })
+}
+
+function sendLeaderboard(id) {
+    const lb = loadLeaderboard()
+    const result: string[] = []
+    for (const userId of Object.keys(lb)) {
+        const response = fetchTelegram("getChatMember", {
+            chat_id: id,
+            user_id: userId
+        })
+        const cm = JSON.parse(response.getContentText()) as TLResult<tl.ChatMember>
+        if (!cm.ok) result.push("Кто-то: ")
+        else {
+            result.push(cm.result.user.first_name)
+            if (cm.result.user.last_name) {
+                result.push(' ')
+                result.push(cm.result.user.last_name)
+            }
+            result.push(": ")
+        }
+        result.push(`${lb[userId]} правильных ответов`)
+        result.push("\n")
+    }
+    sendText(id, result.join(""))
 }
 
 function updatePoll(poll: Poll) {
@@ -1200,6 +1265,7 @@ function doPost(e: DoPost) {
     }
     if (data.edited_message) handleEditedMessage(data.edited_message);
     if (data.poll) updatePoll(data.poll)
+    if (data.poll_answer) handleAnswer(data.poll_answer)
     if (data.callback_query) handleCallback(data.callback_query);
 }
 
