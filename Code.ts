@@ -1045,6 +1045,11 @@ function handleMessage(message: Message) {
                 sendText(id, "Ты забанен, чувак, сорян");
                 return;
             }
+            if (message.chat.type === "private") {
+                sendText(id, "Ах ты мой маленький читер ❤️");
+                banUser(`${message.chat.id}`)
+                return;
+            }
             const username = args.join(" ").trim()
             if (!checkCommandArg(username)) {
                 sendText(id, "Мамку свою забань, тестировщик хуев")
