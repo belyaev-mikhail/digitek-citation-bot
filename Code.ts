@@ -489,7 +489,7 @@ function sendLeaderboard(id) {
     const result: string[] = []
     for (const userId of Object.keys(lb)) {
         const response = fetchTelegram("getChatMember", {
-            chat_id: id,
+            chat_id: `${id}`,
             user_id: userId
         })
         const cm = JSON.parse(response.getContentText()) as TLResult<tl.ChatMember>
