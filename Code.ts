@@ -1080,6 +1080,10 @@ function handleMessage(message: Message) {
             return;
         }
         case '/add_context': {
+            if (checkBan(message)) {
+                sendText(id, "Ты забанен, чувак, сорян");
+                return;
+            }
             const citation = parseCitationId(args);
             if (!citation) {
                 sendText(id, "Нет такой цитаты");
