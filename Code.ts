@@ -196,12 +196,13 @@ type SetWebHookOptions = {
     allowed_updates?: (keyof TlUpdate)[] | undefined;
 }
 
-function fetchTelegram <P extends object>(api: keyof tl, payload?: P): gas.URL_Fetch.HTTPResponse {
+function fetchTelegram <P extends object>(api: keyof tl, payload?: P, options: { muteHttpExceptions?: boolean} = {}): gas.URL_Fetch.HTTPResponse {
     const url = `${telegramUrl()}/${api}`;
     const method = (payload && payload != {}) ? "post" : "get"
     const response = UrlFetchApp.fetch(url, {
         method: method,
-        payload: payload && serialize(payload)
+        payload: payload && serialize(payload),
+        muteHttpExceptions: options.muteHttpExceptions
     });
     return response
 }
@@ -491,7 +492,7 @@ function sendLeaderboard(id) {
         const response = fetchTelegram("getChatMember", {
             chat_id: `${id}`,
             user_id: userId
-        })
+        }, { muteHttpExceptions: true })
         const cm = JSON.parse(response.getContentText()) as TLResult<tl.ChatMember>
         if (!cm.ok) result.push("Кто-то: ")
         else {
