@@ -488,7 +488,8 @@ function handleAnswer(pollAnswer: PollAnswer) {
 function sendLeaderboard(id) {
     const lb = loadLeaderboard()
     const result: string[] = []
-    for (const userId of Object.keys(lb)) {
+    const uids = Object.keys(lb).sort((u1, u2) => lb[u2] - lb[u1])
+    for (const userId of uids) {
         const response = fetchTelegram("getChatMember", {
             chat_id: `${id}`,
             user_id: userId
