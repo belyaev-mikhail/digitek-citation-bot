@@ -1063,6 +1063,10 @@ function handleMessage(message: Message) {
             sendCitationQuiz(id)
             return;
         }
+        case '/leaderboard': {
+            sendLeaderboard(id)
+            return;
+        }
         case '/ctx':
         case '/context': {
             const citation = parseCitationId(args);
