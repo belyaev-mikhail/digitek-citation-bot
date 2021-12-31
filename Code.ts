@@ -1236,15 +1236,15 @@ function handleCallback(callback_query: tl.CallbackQuery) {
     const quizMode = !!(callback_query?.message?.poll)
 
     let likes: object = {};
-    let like: any | undefined;
+    let like: boolean | undefined;
 
     withLock(() => {
         const range = getCitationSheet().getRange(citationId, 4);
 
         likes = JSON.parse(range.getValue() || "{}") as object;
         const userString = '' + callback_query.from.id;
-        like = likes[userString];
-        if(like && !quizMode) delete likes[userString];
+        like = likes[userString] && !quizMode;
+        if (like && !quizMode) delete likes[userString];
         else likes[userString] = true;
         range.setValue(JSON.stringify(likes));
     });
