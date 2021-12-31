@@ -1233,6 +1233,8 @@ function handleCallback(callback_query: tl.CallbackQuery) {
     const cite = getById(citationId);
     if(cite == null) return;
 
+    const quizMode = !!(callback_query?.message?.poll)
+
     let likes: object = {};
     let like: any | undefined;
 
@@ -1242,14 +1244,14 @@ function handleCallback(callback_query: tl.CallbackQuery) {
         likes = JSON.parse(range.getValue() || "{}") as object;
         const userString = '' + callback_query.from.id;
         like = likes[userString];
-        if(like) delete likes[userString];
+        if(like && !quizMode) delete likes[userString];
         else likes[userString] = true;
         range.setValue(JSON.stringify(likes));
     });
 
     if (!callback_query.message) return;
 
-    if (!callback_query.message.poll) { // do not edit anything in quizes
+    if (!quizMode) { // do not edit anything in quizes
         editMessageReplyMarkup(callback_query.message.chat.id, callback_query.message.message_id, {
             text: Object.keys(likes).length + " ❤",
             callback_data: `${citationId}`
