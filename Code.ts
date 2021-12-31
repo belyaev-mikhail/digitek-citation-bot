@@ -626,6 +626,7 @@ function sendCitationQuiz(chatId) {
     const authors = getRandomAuthors(10, citation.who)
     const correct_id = authors.indexOf(citation.who)
     const QUIZ_TIMEOUT_SEC = 30;
+    const likeButton = { text: `Чё как цитата? ❤`, callback_data: citation.n.toString() };
     const response = fetchTelegram("sendPoll", {
         chat_id: `${chatId}`,
         type: "quiz",
@@ -633,7 +634,10 @@ function sendCitationQuiz(chatId) {
         options: authors,
         correct_option_id: correct_id,
         open_period: QUIZ_TIMEOUT_SEC,
-        is_anonymous: false
+        is_anonymous: false,
+        reply_markup: likeButton && {
+            inline_keyboard: [[ likeButton ]]
+        }
     })
     let payload = JSON.parse(response.getContentText()) as TLResult<Message>
     withLock(() => {
@@ -1243,10 +1247,14 @@ function handleCallback(callback_query: tl.CallbackQuery) {
         range.setValue(JSON.stringify(likes));
     });
 
-    editMessageReplyMarkup(callback_query.message!!.chat.id, callback_query.message!!.message_id, {
-        text: Object.keys(likes).length + " ❤",
-        callback_data: `${citationId}`
-    });
+    if (!callback_query.message) return;
+
+    if (!callback_query.message.poll) { // do not edit anything in quizes
+        editMessageReplyMarkup(callback_query.message.chat.id, callback_query.message.message_id, {
+            text: Object.keys(likes).length + " ❤",
+            callback_data: `${citationId}`
+        });
+    }
     answerCallbackQuery(callback_query.id, like? "Разлайкано =(" : "Полайкано");
 }
 
