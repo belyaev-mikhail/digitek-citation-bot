@@ -208,7 +208,10 @@ function fetchTelegram <P extends object>(api: keyof tl, payload?: P, options: {
 }
 
 function unsetWebhook() {
-    const response = fetchTelegram("setWebHook")
+    const payload = {
+        drop_pending_updates: true
+    }
+    const response = fetchTelegram("setWebHook", payload)
     Logger.log(response.getContentText());
 }
 
