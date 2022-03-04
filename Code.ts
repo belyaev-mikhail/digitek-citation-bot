@@ -194,6 +194,7 @@ type SetWebHookOptions = {
     certificate?: string | Stream | undefined;
     max_connections?: number | undefined;
     allowed_updates?: (keyof TlUpdate)[] | undefined;
+    drop_pending_updates?: boolean | undefined;
 }
 
 function fetchTelegram <P extends object>(api: keyof tl, payload?: P, options: { muteHttpExceptions?: boolean} = {}): gas.URL_Fetch.HTTPResponse {
@@ -217,6 +218,7 @@ function unsetWebhook() {
 
 function setWebhook() {
     const payload: SetWebHookOptions = {
+        drop_pending_updates: true,
         url: webAppUrl(),
         allowed_updates: ["message", "edited_message", "inline_query", "callback_query", "poll", "poll_answer"]
     }
