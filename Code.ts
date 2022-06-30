@@ -1026,7 +1026,7 @@ function handleMessage(message: Message) {
 
     switch (command) {
         case '/stats': {
-            sendText(id, "Текущая статистика:\nСтас:\n0% ХАХА\n100% Педик");
+            sendText(id, "Текущая статистика:\n  0% ХАХА\n 50% пошёл нахуй");
             return;
         }
         case '/random': {
