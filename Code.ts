@@ -1025,6 +1025,10 @@ function handleMessage(message: Message) {
     command = command.trim()
 
     switch (command) {
+        case '/stats': {
+            sendText(id, "Текущая статистика:\nСтас:\n0% ХАХА\n100% Педик");
+            return;
+        }
         case '/random': {
             let n = parseQuantity(args)
             for (let i = 0; i < n; ++i) {
