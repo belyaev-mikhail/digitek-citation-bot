@@ -313,6 +313,7 @@ function plainTextToMarkdown(text: string): string {
     return mdEscape(text)
 }
 
+
 function richTextToMarkdown(richText: gas.Spreadsheet.RichTextValue): string {
     let builder = "";
     for (let run of richText.getRuns()) {
