@@ -328,7 +328,7 @@ function richTextToMarkdown(richText: gas.Spreadsheet.RichTextValue): string {
         } else if (style.isStrikethrough()) {
             builder += `~${escaped}~`
         } else if (style.isUnderline()) {
-            builder += `_${escaped}_`
+            builder += `__${escaped}__`
         }
         else {
             builder += `${escaped}`
@@ -715,7 +715,7 @@ class Citation {
     }
 
     send(id) {
-        sendText(id, `(#${this.n}): ${this.getText()}`, { likeButton: this.getBtnData(), parseMode: "Markdown" });
+        sendText(id, `(#${this.n}): ${this.getText()}`, { likeButton: this.getBtnData(), parseMode: "MarkdownV2" });
     }
     sendContext(id) {
         const variants = [
@@ -739,7 +739,7 @@ class Citation {
         } else {
             ok = this.comment;
         }
-        sendTextOrEntity(id, ok, { disableNotification: true, parseMode: "Markdown" })
+        sendTextOrEntity(id, ok, { disableNotification: true, parseMode: "MarkdownV2" })
     }
 
     setCommentAndCommit(comment: string): 'done' | 'nope' {
