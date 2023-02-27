@@ -271,6 +271,8 @@ const MONO_FONT_FAMILY = "Roboto Mono";
 const BOLD = SpreadsheetApp.newTextStyle().setBold(true).build();
 const ITALIC = SpreadsheetApp.newTextStyle().setItalic(true).build();
 const MONO = SpreadsheetApp.newTextStyle().setFontFamily(MONO_FONT_FAMILY).build();
+const STRIKETHROUGH = SpreadsheetApp.newTextStyle().setStrikethrough(true).build();
+const UNDERLINE = SpreadsheetApp.newTextStyle().setUnderline(true).build();
 
 function plainTextToRichText(text: string): gas.Spreadsheet.RichTextValue {
     return SpreadsheetApp.newRichTextValue().setText(text).build()
@@ -294,6 +296,12 @@ function messageToRichText(message: tl.Message): gas.Spreadsheet.RichTextValue {
             case "code":
                 builder.setTextStyle(entity.offset, entity.offset + entity.length, MONO);
                 break;
+            case "strikethrough":
+                builder.setTextStyle(entity.offset, entity.offset + entity.length, STRIKETHROUGH);
+                break;
+            case "underline":
+                builder.setTextStyle(entity.offset, entity.offset + entity.length, UNDERLINE);
+                break;
             default:
                 break;
         }
@@ -316,7 +324,12 @@ function richTextToMarkdown(richText: gas.Spreadsheet.RichTextValue): string {
             builder += `*${escaped}*`
         } else if (style.isItalic()) {
             builder += `_${escaped}_`
-        } else {
+        } else if (style.isStrikethrough()) {
+            builder += `~${escaped}~`
+        } else if (style.isUnderline()) {
+            builder += `_${escaped}_`
+        }
+        else {
             builder += `${escaped}`
         }
     }
@@ -681,7 +694,7 @@ class Citation {
         this.who = values[0]!!.getText() || '';
         this.what = richTextToMarkdown(values[1]!!);
         this.plainWhat = values[1]!!.getText();
-        this.comment = values[2]!!.getText();
+        this.comment = richTextToMarkdown(values[2]!!);
         this.likes = JSON.parse(values[3]!!.getText() || "{}");
         if (values.length > 5
             && values[5]
@@ -725,7 +738,7 @@ class Citation {
         } else {
             ok = this.comment;
         }
-        sendTextOrEntity(id, ok, { disableNotification: true })
+        sendTextOrEntity(id, ok, { disableNotification: true, parseMode: "Markdown" })
     }
 
     setCommentAndCommit(comment: string): 'done' | 'nope' {
