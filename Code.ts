@@ -259,7 +259,7 @@ function serialize(payload: object) {
 
 function mdEscape(text: string) {
     // https://stackoverflow.com/questions/40626896/telegram-does-not-escape-some-markdown-characters
-    return text.replace(/([_*\[\]`\-!#().])/g, "\\$1");
+    return text.replace(/([_*\[\]`\-!#().,])/g, "\\$1");
 }
 
 
@@ -807,8 +807,8 @@ function citeOfTheDay() {
         var id = +sheet.getRange(row, 1).getValue();
         if (id < 0) {
             const citation = getRandom();
-            sendText(id, `Цитата дня (#${citation.n}):\n${citation.getText()}`,
-                { likeButton: citation.getBtnData(), parseMode: "Markdown" }
+            sendText(id, `Цитата дня \\(\\#${citation.n}\\):\n${citation.getText()}`,
+                { likeButton: citation.getBtnData(), parseMode: "MarkdownV2" }
             );
         }
     }
@@ -1150,7 +1150,7 @@ function handleMessage(message: Message) {
                 sendText(id, "Нет таких цитат");
                 return;
             }
-            sendText(id, citations.join("\n\n"), { parseMode: "Markdown" });
+            sendText(id, citations.join("\n\n"), { parseMode: "MarkdownV2" });
             return;
         }
         case '/pic': {
