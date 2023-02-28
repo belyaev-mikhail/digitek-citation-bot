@@ -707,7 +707,7 @@ class Citation {
     }
 
     getText() {
-        return `${this.what} (c) ${this.who}`;
+        return `${this.what} \\(c\\) ${this.who}`;
     }
 
     getBtnData() {
