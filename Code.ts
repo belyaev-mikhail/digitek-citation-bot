@@ -259,7 +259,7 @@ function serialize(payload: object) {
 
 function mdEscape(text: string) {
     // https://stackoverflow.com/questions/40626896/telegram-does-not-escape-some-markdown-characters
-    return text.replace(/([_*\[\]`\-!#])/g, "\\$1");
+    return text.replace(/([_*\[\]`\-!#().])/g, "\\$1");
 }
 
 
