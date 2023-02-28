@@ -715,7 +715,7 @@ class Citation {
     }
 
     send(id) {
-        sendText(id, `(#${this.n}): ${this.getText()}`, { likeButton: this.getBtnData(), parseMode: "MarkdownV2" });
+        sendText(id, `\\(#${this.n}\\): ${this.getText()}`, { likeButton: this.getBtnData(), parseMode: "MarkdownV2" });
     }
     sendContext(id) {
         const variants = [
