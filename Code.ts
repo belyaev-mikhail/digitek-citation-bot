@@ -784,7 +784,7 @@ function searchCitations(text: string): string[] {
     return [...getCitationSheet().getRange(`A2:D${last}`).getRichTextValues()
         .map((it, ix) => new Citation(ix+2, it))
         .filter(citation => RegExp(text, "gi").test(citation.plainWhat))
-        .map((citation) => `(#${citation.n}):\n${citation.getText()}`)];
+        .map((citation) => `\\(\\#${citation.n}\\):\n${citation.getText()}`)];
 }
 
 function isAllowed(id) {
