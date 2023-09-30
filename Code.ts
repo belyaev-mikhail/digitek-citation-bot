@@ -648,7 +648,7 @@ function sendCitationQuiz(chatId) {
     const response = fetchTelegram("sendPoll", {
         chat_id: `${chatId}`,
         type: "quiz",
-        question: `Угадай автора цитаты:\n"${citation.what.slice(0, 275)}"`,
+        question: `Угадай автора цитаты:\n"${citation.plainWhat.slice(0, 275)}"`,
         options: authors,
         correct_option_id: correct_id,
         open_period: QUIZ_TIMEOUT_SEC,
