@@ -691,7 +691,7 @@ class Citation {
 
     constructor(n: number, values: Array<gas.Spreadsheet.RichTextValue | null>) {
         this.n = n;
-        this.who = values[0]!!.getText() || '';
+        this.who = richTextToMarkdown(values[0]!!);
         this.what = richTextToMarkdown(values[1]!!);
         this.plainWhat = values[1]!!.getText();
         this.comment = richTextToMarkdown(values[2]!!);
