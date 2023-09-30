@@ -686,6 +686,7 @@ class Citation {
     what: string;
     plainWhat: string;
     comment: string;
+    plainComment: string;
     likes: object;
     source?: CitationSource;
 
@@ -695,6 +696,7 @@ class Citation {
         this.what = richTextToMarkdown(values[1]!!);
         this.plainWhat = values[1]!!.getText();
         this.comment = richTextToMarkdown(values[2]!!);
+        this.plainComment = values[2]!!.getText()
         this.likes = JSON.parse(values[3]!!.getText() || "{}");
         if (values.length > 5
             && values[5]
@@ -729,7 +731,7 @@ class Citation {
         ];
 
         let ok;
-        if (this.comment === `by ${SIG}` || !this.comment) {
+        if (this.plainComment === `by ${SIG}` || !this.comment) {
             if (this.source && this.source.type == 'reply') {
                 ok = `#message#${this.source.replyTo.messageId}#${this.source.replyTo.chatId}`
             } else {
